@@ -3,21 +3,18 @@ Code for my MSc Dissertation on Patterns of gene expression in high grade serous
 
 Tromics: Transcriptomics!
 
-## Libraries required
-(Those in parenthasis are currently used but could be removed / replaced)
+## Setting up a Python3 environment
 
-* numpy
-* Scikit-learn
-* pandas
-* matplotlib
-* (seaborn)
-* (mygene)
-* (ggrid)
-* (nimfa)
-* goatools
-* Biopython
-* goatools
-* (nosetest)
+```shell script
+$ conda create -n tromics python=3.6 numpy scikit-learn pandas matplotlib pillow jupyterlab seaborn
+$ source activate tromics
+$ pip install mygene qgrid nimfa goatools biopython nose
+```
+The above has been captuured in ```create_tromics_conda_invironment.sh``` so you can just:
+```shell script
+$ cd HgsocTromics
+$ ./create_tromics_conda_invironment
+```
 
 ## Steps to checkout and build
 

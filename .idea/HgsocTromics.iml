@@ -5,7 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/Src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/Src/tests" isTestSource="false" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.6 (HgsocTromics)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.6 (tromics)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="R Skeletons" level="application" />
     <orderEntry type="library" name="R User Library" level="project" />
