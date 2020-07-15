@@ -2,24 +2,23 @@
 
 # # Compare factors delivered by the three methods
 import os
+import pickle
 from pathlib import Path
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-import pickle
-
-from sklearn.manifold import TSNE
-from sklearn.preprocessing import normalize
-from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 from sklearn.utils import resample
 
+from factorizer_wrappers import ICA_Factorizer, NMF_Factorizer, PCA_Factorizer
+
+
 # ## Factorizer classes
 # These have now been hived off into ``factorizer_wrappers.py``.  Import and test them.
-
-from factorizer_wrappers import ICA_Factorizer, NMF_Factorizer, PCA_Factorizer
 
 
 # noinspection PyStringFormat,PyMethodMayBeStatic
@@ -51,19 +50,59 @@ class FactorClustering:
     def colour(self, facto):
         return self.colours[facto.__name__[:3]]
 
+    @staticmethod
+    def read_pair_of_expressions_and_intersect(file_1, file_2):
+        """Read expression data from both files returning a pair of dataframes having only
+        genes which are present in both files"""
+        df_1 = pd.read_csv(file_1, sep='\t', index_col=0)
+
+        df_2 = pd.read_csv(file_2, sep='\t', index_col=0)
+
+        genes_1 = set(df_1.index)
+        genes_2 = set(df_2.index)
+        intersection_genes = genes_1.intersection(genes_2)
+
+        intersection_df = pd.DataFrame()
+        intersection_df['GeneENSG'] = list(intersection_genes)
+        intersection_df.set_index('GeneENSG', inplace=True)
+
+        df_1_pruned = pd.merge(df_1, intersection_df, how='inner', on='GeneENSG')
+        df_2_pruned = pd.merge(df_2, intersection_df, how='inner', on='GeneENSG')
+        df_1_pruned.sort_index(inplace=True)
+        df_2_pruned.sort_index(inplace=True)
+
+        return df_1_pruned, df_2_pruned
+
+    @staticmethod
+    def create_intersection_pruned_ovarian_datasets():
+
+        input_filename_1 = '../Data/AOCS_Protein/AOCS_Protein_NOT_Expression.tsv'
+        input_filename_2 = '../Data/TCGA_OV_VST/TCGA_OV_VST_NOT_Expression.tsv'
+
+        output_filename_1 = '../Data/AOCS_Protein/AOCS_Protein_PrunedExpression.tsv'
+        output_filename_2 = '../Data/TCGA_OV_VST/TCGA_OV_VST_PrunedExpression.tsv'
+
+        if not (os.path.exists(output_filename_1) and os.path.exists(output_filename_2)):
+            print("Creating pruned (synchonised) versions of AOCS and TCGA datasets...")
+            df_1, df_2 = FactorClustering.read_pair_of_expressions_and_intersect(
+                input_filename_1, input_filename_2)
+
+            df_1.to_csv(output_filename_1, index=True, index_label='GeneENSG', sep='\t')
+            df_2.to_csv(output_filename_2, index=True, index_label='GeneENSG', sep='\t')
+
+            print("Done.")
+        else:
+            print("Intersection pruned AOCS and TCGA datasets already exist.")
+
     def read_expression_matrix(self):
         # Read in expression spreadsheet which has been processed (see end of notebook)
         # to inlcude only protein coding genes
 
-        self.expression_filename = '../Data/%s/%s_Expression.tsv' % (self.basename, self.basename)
-        self.expression_df = pd.read_csv(self.expression_filename, sep='\t')
+        self.expression_filename = '../Data/%s/%s_PrunedExpression.tsv' % (
+            self.basename, self.basename)
+        self.expression_df = pd.read_csv(self.expression_filename, sep='\t', index_col=0)
 
-        # Some data comes with Ensembl ENSG gene ids, some come with readable symbols...
-
-        self.expression_df.set_index(self.gene_column_name, inplace=True)
-
-        # TODO: is this right?
-        self.expression_matrix = normalize(np.asarray(self.expression_df))
+        self.expression_matrix = np.asarray(self.expression_df)
         if 'Canon' in self.basename:  # HACK: Canon TempO-Seq data
             clip_val = np.percentile(self.expression_matrix, 99.9)
             self.expression_matrix[self.expression_matrix > clip_val] = clip_val
@@ -138,8 +177,8 @@ class FactorClustering:
         # t-SNE projection.  Also get median metagenes and score.
 
         facto_name = facto_class.__name__[:3]
-        tsne_cache_filename = self.cache_dir + 'tsne_score_medians_%s_%d_%d_%s.pkl' % \
-            (facto_name, n_components, self.n_repeats, self.method)
+        tsne_cache_filename = self.cache_dir + 'tsne_score_medians_%s_%d_%d_%s.pkl' % (
+            facto_name, n_components, self.n_repeats, self.method)
 
         if not os.path.exists(tsne_cache_filename):
             metagene_list = self.compute_and_cache_one_factor_repeats(facto_class, n_components)
@@ -390,6 +429,12 @@ class FactorClustering:
 
             print('\r%d' % nc, end='')
 
+    @staticmethod
+    def read_median_metagenes(basename, facto_prefix, nc):
+        fname = '../Factors/%s/%s_median_factor_%d.tsv' % (basename, facto_prefix, nc)
+        df = pd.read_csv(fname, sep='\t', index_col=0)
+        return df
+
     def plot_silhouette_scores(self, nc_list, show=False):
         NMF_sc, ICA_sc, PCA_sc = {}, {}, {}
         compute = self.compute_tsne_score_medians
@@ -429,16 +474,17 @@ def one_run(basename, method, saveplots=True):
     fc = FactorClustering(basename, 50, method, saveplots=saveplots)
     fc.read_expression_matrix()
 
+    nc_list = range(2, 8)
+
     if True:
         # Beware - this will take hours (for the full size dataset)!
-        #
-        fc.compute_and_cache_multiple_factor_repeats(range(2, 7), force=False)
+        fc.compute_and_cache_multiple_factor_repeats(nc_list, force=False)
 
     if True:
-        fc.plot_multiple_combined_factors_scatter(range(2, 7), show=False)
+        fc.plot_multiple_combined_factors_scatter(nc_list, show=False)
 
     if False:
-        fc.investigate_multiple_cluster_statistics(range(2, 14))
+        fc.investigate_multiple_cluster_statistics(nc_list)
 
     if True:
         fc.plot_single_factor_scatter(NMF_Factorizer, 8, show=False)
@@ -446,33 +492,41 @@ def one_run(basename, method, saveplots=True):
         fc.plot_single_factor_scatter(PCA_Factorizer, 8, show=False)
 
     if True:
-        fc.plot_multiple_single_factors_scatter(NMF_Factorizer, range(2, 7), show=False)
-        fc.plot_multiple_single_factors_scatter(ICA_Factorizer, range(2, 7), show=False)
-        fc.plot_multiple_single_factors_scatter(PCA_Factorizer, range(2, 7), show=False)
+        fc.plot_multiple_single_factors_scatter(NMF_Factorizer, nc_list, show=False)
+        fc.plot_multiple_single_factors_scatter(ICA_Factorizer, nc_list, show=False)
+        fc.plot_multiple_single_factors_scatter(PCA_Factorizer, nc_list, show=False)
 
     if True:
         if fc.method == 'bootstrap':
             for facto_class in [NMF_Factorizer, ICA_Factorizer, PCA_Factorizer]:
-                fc.save_multiple_median_metagenes_to_factors(facto_class, range(2, 7))
+                fc.save_multiple_median_metagenes_to_factors(facto_class, nc_list)
 
 
 def main():
+
+    # On first run we must generate the '..._PrunedExpression.tsv' datasets for each of TCGA
+    # and AOCS.  This results in datasets with identical gene sets.  The function is lazy
+    # so no harm in calling it subsequently.
+    FactorClustering.create_intersection_pruned_ovarian_datasets()
+
     possible_datasets = {1: 'Mini_AOCS',
                          2: 'AOCS_Protein',
                          3: 'TCGA_OV_VST',
                          4: 'Canon_N200'}
 
-    one_run(possible_datasets[2], 'bootstrap', saveplots=True)
-    one_run(possible_datasets[2], 'fixed', saveplots=True)
-
+    # one_run(possible_datasets[2], 'bootstrap', saveplots=True)
+    # one_run(possible_datasets[2], 'fixed', saveplots=True)
+    #
     one_run(possible_datasets[3], 'bootstrap', saveplots=True)
-    one_run(possible_datasets[3], 'fixed', saveplots=True)
-
-    one_run(possible_datasets[4], 'bootstrap', saveplots=True)
-    one_run(possible_datasets[4], 'fixed', saveplots=True)
+    # one_run(possible_datasets[3], 'fixed', saveplots=True)
+    #
+    # one_run(possible_datasets[4], 'bootstrap', saveplots=True)
+    # one_run(possible_datasets[4], 'fixed', saveplots=True)
 
     print('\n\n All Done.')
 
 
 if __name__ == '__main__':
     main()
+
+    # FactorClustering.create_intersection_pruned_ovarian_datasets()

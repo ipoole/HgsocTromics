@@ -27,7 +27,8 @@ class TestGeneEnrichment(unittest.TestCase):
         columns = ['IC%d' % c for c in range(nc)]
         factor_df = pd.DataFrame(data=self.random_metagene_matrix, columns=columns)
 
-        expression_filename = '../Data/%s/%s_Expression.tsv' % (self.basename(), self.basename())
+        expression_filename = '../Data/%s/%s_PrunedExpression.tsv' % \
+                              (self.basename(), self.basename())
 
         # The gene column name is different between Canon and TCGA/AOCS datasets
         expression_df = pd.read_csv(expression_filename, sep='\t',

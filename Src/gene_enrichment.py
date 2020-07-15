@@ -40,7 +40,7 @@ class GeneEnrichment:
     def gene_symbols(self):
         """ We need HUGO style readable gene symbols for all genes in our study """
         if self._gene_symbols is None:
-            expression_filename = '../Data/%s/%s_Expression.tsv' % \
+            expression_filename = '../Data/%s/%s_PrunedExpression.tsv' % \
                                   (self.basename, self.basename)
 
             # Read in only the first 'Gene_ID' column of the expression matrix

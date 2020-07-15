@@ -42,13 +42,15 @@ class TestFactorClustering(TestCase):
         assert np.array_equal(flipped_metagenes[1, :], -metagenes[1, :])
 
     def test_cached_factor_repeats_filename(self):
-        fc1 = FactorClustering('dummy', 10, 'bootstrap')
+        fc1 = self.clustering()
+        fc1.method = 'bootstrap'
         pickle_fname = fc1.cached_factor_repeats_filename(NMF_Factorizer, 5)
         print(pickle_fname)
         assert 'NMF' in pickle_fname
         assert 'bootstrap' in pickle_fname
 
-        fc2 = FactorClustering('dummy', 10, 'fixed')
+        fc2 = self.clustering()
+        fc2.method = 'fixed'
         pickle_fname = fc2.cached_factor_repeats_filename(NMF_Factorizer, 5)
         print(pickle_fname)
         assert 'NMF' in pickle_fname
@@ -58,7 +60,8 @@ class TestFactorClustering(TestCase):
         n_components = 4
 
         def one_test(facto_class, method, expect_randomness):
-            fc = FactorClustering(self.clustering().basename, 10, method)
+            fc = self.clustering()
+            fc.method = method
             fc.read_expression_matrix()
 
             metagene_list = fc.compute_and_cache_one_factor_repeats(
@@ -139,6 +142,10 @@ class TestFactorClustering(TestCase):
         fc = self.clustering()
         fc.save_multiple_median_metagenes_to_factors(ICA_Factorizer, [3, 4])
 
+        df = FactorClustering.read_median_metagenes(self.basename(), 'ICA', 3)
+        W = np.asarray(df)
+        assert W.shape == (100, 3)
+
 
 class TestFactorClusteringCanon(TestFactorClustering):
     """ This repeats the tests as above but with the trivial 'Mini_Canon' dataset
@@ -146,6 +153,15 @@ class TestFactorClusteringCanon(TestFactorClustering):
 
     def basename(self):
         return 'Mini_Canon'
+
+
+class TestCreateIntersectionPrunedOvarianDatasets(TestCase):
+    # This is not so much a unit test, as ensuring that the pruned
+    # datasets are created on first run.  The method is lazy so no
+    # harm in repeted running.
+    @staticmethod
+    def test_create_intersection_pruned_ovarian_datasets():
+        FactorClustering.create_intersection_pruned_ovarian_datasets()
 
 
 if __name__ == '__main__':
