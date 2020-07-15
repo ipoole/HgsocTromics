@@ -102,3 +102,8 @@ def run_coxs_proportional_hazards(df):
     cph = CoxPHFitter()
     cph.fit(df, duration_col='survival_time', event_col='vital_status')
     cph.print_summary(decimals=3)
+
+if __name__ == '__main__':
+    basename = 'TCGA_OV_VST'
+    df_meta = make_H_dataframe(basename, 'PCA', 7)
+    run_coxs_proportional_hazards(df_meta)
