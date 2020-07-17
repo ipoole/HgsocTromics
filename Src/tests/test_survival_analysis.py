@@ -1,11 +1,15 @@
 import unittest
 import numpy as np
 from factorizer_wrappers import ICA_Factorizer, NMF_Factorizer, PCA_Factorizer
-import survival_analysis
+from survival_analysis import SurvivalAnalysis
 
 
 # noinspection PyMethodMayBeStatic
-class MyTestCase(unittest.TestCase):
+class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
+
+    def setUp(self):
+        self.sa = SurvivalAnalysis('TCGA_OV_VST', 'TCGA_OV_VST', saveplots=False)
+        self.survival_df = self.sa.make_survival_df('NMF', 3)
 
     def test_compute_H_from_W_and_X(self):
         def onetest(facto_class):
@@ -19,7 +23,7 @@ class MyTestCase(unittest.TestCase):
             facto.fit(X)
             W = facto.get_W()
 
-            H_computed = survival_analysis.compute_H_from_W_and_X(W, X, facto_class.__name__[:3])
+            H_computed = self.sa.compute_H_from_W_and_X(W, X, facto_class.__name__[:3])
             assert H_computed.shape == (k, n)
             print("max diff:", np.max(np.abs(H_computed - facto.get_H())))
             # We get less close results for NMF
@@ -29,8 +33,7 @@ class MyTestCase(unittest.TestCase):
                 assert np.all(H_computed >= 0)
 
             # Check it works for a single patient
-            H_computed_0 = survival_analysis.compute_H_from_W_and_X(W, X[:, [0]],
-                                                                    facto_class.__name__[:3])
+            H_computed_0 = self.sa.compute_H_from_W_and_X(W, X[:, [0]], facto_class.__name__[:3])
             assert H_computed_0.shape == (k, 1)
             assert np.allclose(H_computed_0, facto.get_H()[:, [0]], atol=tol)
 
@@ -41,21 +44,36 @@ class MyTestCase(unittest.TestCase):
     # The following will not run out of the box until factors have been
     # computed; they are bad tests!
 
-    # def test_make_survival_df(self):
-    #     basename = 'TCGA_OV_VST'
-    #     df_meta = survival_analysis.make_survival_df(basename, 'ICA', 3)
-    #     print(df_meta)
-    #     print(df_meta.columns)
-    #
-    # def test_plot_unstratified_survival(self):
-    #     basename = 'TCGA_OV_VST'
-    #     df_meta = survival_analysis.make_H_dataframe(basename, 'ICA', 3)
-    #     survival_analysis.plot_unstratified_survival(df_meta)
-    #
-    # def test_run_coxs_proportional_hazards(self):
-    #     basename = 'TCGA_OV_VST'
-    #     df_meta = survival_analysis.make_H_dataframe(basename, 'PCA', 7)
-    #     survival_analysis.run_coxs_proportional_hazards(df_meta)
+    def test_make_survival_df(self):
+        print(self.survival_df)
+        print(self.survival_df.columns)
+
+    def test_plot_unstratified_survival(self):
+        self.sa.plot_unstratified_survival(self.survival_df, show=False)
+
+    def test_run_coxs_proportional_hazards(self):
+        self.sa.run_once_coxs_proportional_hazards(self.survival_df, ['NMF_1_of_3'])
+
+    def test_make_combined_survival_df(self):
+        df = self.sa.make_combined_survival_df()
+        cols = df.columns
+        assert len(set(cols)) == len(cols)  # check no duplicates
+        all_components = [c for c in cols if c not in [self.sa.time_colname, self.sa.event_colname]]
+        print(all_components)
+        assert len(all_components) >= 3
+
+    def test_plot_component_stratified_survival(self):
+        facto_name = 'NMF'
+        nc = 3
+        for comp in ['%s_%d_of_%d' % (facto_name, i, nc) for i in range(1, nc + 1)]:
+            self.sa.plot_component_stratified_survival(self.survival_df, comp, show=False)
+
+
+class SurvivalAnalysisTestsTcgaAocs(SurvivalAnalysisTestsTcgaTcga):
+    # This version exercises cross application; metagenes from TCGA applied to AOCS
+    def setUp(self):
+        self.sa = SurvivalAnalysis('TCGA_OV_VST', 'AOCS_Protein')
+        self.survival_df = self.sa.make_survival_df('NMF', 3)
 
 
 if __name__ == '__main__':
