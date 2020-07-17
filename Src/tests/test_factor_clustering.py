@@ -94,8 +94,6 @@ class TestFactorClustering(TestCase):
         fc = self.clustering()
         n_components = 3
         facto = ICA_Factorizer
-        fc.compute_and_cache_one_factor_repeats(
-            facto, n_components, force=False)
         fc.plot_single_factor_scatter(facto, n_components, show=False)
 
     def test_compute_combined_tsne(self):
@@ -109,12 +107,12 @@ class TestFactorClustering(TestCase):
         fc.plot_combined_factors_scatter(4, show=False)
 
     def test_plot_multiple_combined_factors_scatter(self):
-        nc_list = [2, 3]
+        nc_list = [2, 3, 4, 5]
         fc = self.clustering()
         fc.plot_multiple_combined_factors_scatter(nc_list, show=False)
 
     def test_plot_multiple_single_factors_scatter(self):
-        nc_list = [2, 3]
+        nc_list = [2, 3, 4, 5]
         fc = self.clustering()
         fc.plot_multiple_single_factors_scatter(ICA_Factorizer, nc_list, show=False)
 
@@ -158,7 +156,7 @@ class TestFactorClusteringCanon(TestFactorClustering):
 class TestCreateIntersectionPrunedOvarianDatasets(TestCase):
     # This is not so much a unit test, as ensuring that the pruned
     # datasets are created on first run.  The method is lazy so no
-    # harm in repeted running.
+    # harm in repeated running.
     @staticmethod
     def test_create_intersection_pruned_ovarian_datasets():
         FactorClustering.create_intersection_pruned_ovarian_datasets()

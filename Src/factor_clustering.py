@@ -171,7 +171,7 @@ class FactorClustering:
                 _ = one(ICA_Factorizer, nc, force=force)
                 _ = one(PCA_Factorizer, nc, force=force)
 
-            print("All Done.")
+            print("Multiple repeat factorizations all done.")
 
     def compute_tsne_score_medians(self, facto_class, n_components, pca_reduced_dims=20):
         # t-SNE projection.  Also get median metagenes and score.
@@ -202,7 +202,7 @@ class FactorClustering:
 
         return Y, score, median_metagenes
 
-    def plot_single_factor_scatter(self, facto_class, n_components, show=False):
+    def plot_single_factor_scatter(self, facto_class, n_components, show=True):
         # Plot the t-SNE projections
         # First plot the scattered points
         (Y, score, median_metagenes) = self.compute_tsne_score_medians(facto_class, n_components)
@@ -221,14 +221,14 @@ class FactorClustering:
 
         plt.legend()
         facto_name = facto_class.__name__[:3]
-        plt.title("%s; %s; nc=%d; silhouette s.=%6.4f" %
+        plt.title("%s; %s; k=%d; silhouette s.=%6.4f" %
                   (self.shortname, facto_name, n_components, score))
-        figname = 'single_factor_scatter_%s_%s_%d_%s' % (self.shortname, facto_name, n_components,
-                                                         self.method)
-        if self.saveplots:
-            figpath = self.plots_dir + figname + '.pdf'
-            print("Saving figure to", figpath)
-            plt.savefig(figpath)
+        # figname = 'single_factor_scatter_%s_%s_%d_%s' % (self.shortname, facto_name, n_components,
+        #                                                  self.method)
+        # if self.saveplots:
+        #     figpath = self.plots_dir + figname + '.pdf'
+        #     print("Saving figure to", figpath)
+        #     plt.savefig(figpath, bbox_inches='tight')
         if show:
             plt.show()
 
@@ -298,36 +298,44 @@ class FactorClustering:
         if self.saveplots:
             figpath = self.plots_dir + figname + '.pdf'
             print("Saving figure to", figpath)
-            plt.savefig(figpath)
+            plt.savefig(figpath, bbox_inches='tight')
         if show:
             plt.show()
 
     def plot_multiple_combined_factors_scatter(self, nc_list, show=True):
-        plt.figure(figsize=(20, 20))
+        n = len(nc_list)
+        cols = 4
+        rows = int(np.ceil(n / cols))
+        plt.figure(figsize=(5*cols, 5*rows))
         for i, nc in enumerate(nc_list):
             print('.', end='')
-            plt.subplot(4, 3, i + 1)
+            plt.subplot(rows, cols, i + 1)
             self.plot_combined_factors_scatter(nc, show=False)
+
         plt.suptitle("%s; t-SNE clusterings for %d bootstraps of NMF, ICA and PCA" %
-                     (self.shortname, self.n_repeats), size=14)
+                     (self.shortname, self.n_repeats), size=14, y=1.0)
         nc_list_str = '_'.join([str(c) for c in nc_list])
         figname = 'multiple_combined_factors_scatter_%s_%s_%s' % (self.shortname, nc_list_str,
                                                                   self.method)
         if self.saveplots:
             figpath = self.plots_dir + figname + '.pdf'
             print("Saving figure to", figpath)
-            plt.savefig(figpath)
+            plt.savefig(figpath, bbox_inches='tight')
         if show:
             plt.show()
 
     def plot_multiple_single_factors_scatter(self, facto_class, nc_list, show=True):
-        plt.figure(figsize=(16, 20))
+        n = len(nc_list)
+        cols = 4
+        rows = int(np.ceil(n / cols))
+        plt.figure(figsize=(5 * cols, 4.5 * rows))
         for i, nc in enumerate(nc_list):
             print('.', end='')
-            plt.subplot(4, 3, i + 1)
+            plt.subplot(rows, cols, i + 1)
             self.plot_single_factor_scatter(facto_class, nc, show=False)
-        plt.suptitle("%s; t-SNE clustering for %d repeats of %s" %
-                     (self.shortname, self.n_repeats, facto_class.__name__[:3]), size=14)
+        plt.suptitle("%s, %s; t-SNE clustering for %d repeats, with %s sampling" %
+                     (self.shortname, facto_class.__name__[:3], self.n_repeats, self.method),
+                     size=16)
         facto_name = facto_class.__name__[:3]
         nc_list_str = '_'.join([str(c) for c in nc_list])
         figname = 'multiple_single_factors_scatter_%s_%s_%s_%s' % \
@@ -335,7 +343,7 @@ class FactorClustering:
         if self.saveplots:
             figpath = self.plots_dir + figname + '.pdf'
             print("Saving figure to", figpath)
-            plt.savefig(figpath)
+            plt.savefig(figpath, bbox_inches='tight')
         if show:
             plt.show()
 
@@ -435,7 +443,8 @@ class FactorClustering:
         df = pd.read_csv(fname, sep='\t', index_col=0)
         return df
 
-    def plot_silhouette_scores(self, nc_list, show=False):
+    def plot_silhouette_scores(self, nc_list, show=True):
+        plt.figure(figsize=(6, 4))
         NMF_sc, ICA_sc, PCA_sc = {}, {}, {}
         compute = self.compute_tsne_score_medians
         for nc in nc_list:
@@ -450,19 +459,18 @@ class FactorClustering:
                  label='ICA')
         plt.plot(list(PCA_sc.keys()), list(PCA_sc.values()), '-o', c=self.colour(PCA_Factorizer),
                  label='PCA')
-        plt.xlabel('n_components')
+        plt.xlabel('Factorization rank (k)')
         plt.ylabel('Silhouette score')
         plt.xticks(np.arange(min(nc_list), max(nc_list), step=1))
         plt.legend()
-        plt.title("%s; Silhouette plots (%s)" % (self.shortname, self.method))
+        plt.title("%s; Silhouette scores (%s sampling)" % (self.shortname, self.method))
 
         nc_list_str = '_'.join([str(c) for c in nc_list])
-        figname = 'multiple_single_factors_scatter_%s_%s_%s' % (self.shortname, nc_list_str,
-                                                                self.method)
+        figname = 'silhouette_plots_%s_%s_%s' % (self.shortname, nc_list_str, self.method)
         if self.saveplots:
             figpath = self.plots_dir + figname + '.pdf'
             print("Saving figure to", figpath)
-            plt.savefig(figpath)
+            plt.savefig(figpath, bbox_inches='tight')
         if show:
             plt.show()
 
@@ -474,7 +482,7 @@ def one_run(basename, method, saveplots=True):
     fc = FactorClustering(basename, 50, method, saveplots=saveplots)
     fc.read_expression_matrix()
 
-    nc_list = range(2, 8)
+    nc_list = [2, 3, 5, 10]  # These are the ranks we'll show in the paper.
 
     if True:
         # Beware - this will take hours (for the full size dataset)!
@@ -487,14 +495,12 @@ def one_run(basename, method, saveplots=True):
         fc.investigate_multiple_cluster_statistics(nc_list)
 
     if True:
-        fc.plot_single_factor_scatter(NMF_Factorizer, 8, show=False)
-        fc.plot_single_factor_scatter(ICA_Factorizer, 8, show=False)
-        fc.plot_single_factor_scatter(PCA_Factorizer, 8, show=False)
-
-    if True:
         fc.plot_multiple_single_factors_scatter(NMF_Factorizer, nc_list, show=False)
         fc.plot_multiple_single_factors_scatter(ICA_Factorizer, nc_list, show=False)
         fc.plot_multiple_single_factors_scatter(PCA_Factorizer, nc_list, show=False)
+
+    if False:
+        fc.plot_silhouette_scores(range(2, 11), show=False)
 
     if True:
         if fc.method == 'bootstrap':
@@ -514,11 +520,11 @@ def main():
                          3: 'TCGA_OV_VST',
                          4: 'Canon_N200'}
 
-    # one_run(possible_datasets[2], 'bootstrap', saveplots=True)
-    # one_run(possible_datasets[2], 'fixed', saveplots=True)
+    one_run(possible_datasets[2], 'bootstrap', saveplots=True)
+    one_run(possible_datasets[2], 'fixed', saveplots=True)
     #
     one_run(possible_datasets[3], 'bootstrap', saveplots=True)
-    # one_run(possible_datasets[3], 'fixed', saveplots=True)
+    one_run(possible_datasets[3], 'fixed', saveplots=True)
     #
     # one_run(possible_datasets[4], 'bootstrap', saveplots=True)
     # one_run(possible_datasets[4], 'fixed', saveplots=True)
@@ -529,4 +535,4 @@ def main():
 if __name__ == '__main__':
     main()
 
-    # FactorClustering.create_intersection_pruned_ovarian_datasets()
+
