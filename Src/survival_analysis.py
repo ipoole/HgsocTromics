@@ -19,20 +19,26 @@ from scipy.optimize import nnls
 class SurvivalAnalysis:
     # noinspection PyPep8Naming
 
-    def __init__(self, train_basename, eval_basename, saveplots=False):
+    def __init__(self, train_basename, eval_basename, survival_or_relapse='os',
+                 saveplots=False):
         tcga = 'TCGA_OV_VST'
         aocs = 'AOCS_Protein'
+        self.survival_or_relapse = survival_or_relapse
 
         assert train_basename in [tcga, aocs]
         assert eval_basename in [tcga, aocs]
+        assert survival_or_relapse in ['os', 'pfs']
+
         self.train_basename = train_basename
         self.eval_basename = eval_basename
+        self.survival_or_relapse = survival_or_relapse
         self.plots_dir = '../Plots/SurvivalAnalysis/'
         self.saveplots = saveplots
         os.makedirs(self.plots_dir, exist_ok=True)
 
         if eval_basename == tcga:
             # TCGA
+            assert self.survival_or_relapse == 'os'  # no relapse data not available for TCGA
             self.patient_id_colname = 'RNAID'
             self.time_colname = 'survival_time'
             self.event_colname = 'vital_status'
@@ -41,7 +47,7 @@ class SurvivalAnalysis:
             # AOCS
             self.patient_id_colname = 'Sample'
             # noinspection PyUnreachableCode
-            if True:
+            if survival_or_relapse == 'os':
                 self.time_colname = 'donor_survival_time'
                 self.event_colname = 'os_event'
             else:
@@ -116,7 +122,7 @@ class SurvivalAnalysis:
 
         df_clean = meta_df.dropna()
         n_lost = len(meta_df) - len(df_clean)
-        print("Number of subjects lost: ", n_lost)
+        print("Number of subjects lost due to nan: ", n_lost)
         assert n_lost / len(meta_df) < 0.1  # No more than 10% lost
         df_clean = df_clean.replace({self.event_colname: self.event_recode_dict})
 
@@ -140,15 +146,24 @@ class SurvivalAnalysis:
             print("Saving figure to", figpath)
             plt.savefig(figpath, bbox_inches='tight')
 
+    # noinspection PyProtectedMember
     def plot_component_stratified_survival(self, df, component_name, show=True):
+        """ We assume that given df is already thresholded with components having values 0 or 1"""
         assert df.index.name == self.patient_id_colname
         assert self.time_colname in df.columns
         assert self.event_colname in df.columns
         assert component_name in df.columns
+        assert df[component_name].max() == 1   # check thresholding
+        assert df[component_name].min() == 0
 
-        median = np.median(df[component_name])
-        df_low = df[df[component_name] <= median]
-        df_high = df[df[component_name] > median]
+        df_low = df[df[component_name] == 0]
+        df_high = df[df[component_name] == 1]
+
+        # Run Cox's to get hazard ratio and p-value
+        cph = self.run_once_coxs_proportional_hazards(df, [component_name])
+        assert len(cph.hazard_ratios_) == 1
+        hazard_ratio = cph.hazard_ratios_[0]
+        p_value = cph._compute_p_values()[0]
 
         kmf = KaplanMeierFitter()
         kmf.fit(df_low[self.time_colname] / 365, df_low[self.event_colname])
@@ -156,9 +171,12 @@ class SurvivalAnalysis:
 
         kmf.fit(df_high[self.time_colname] / 365, df_high[self.event_colname])
         kmf.plot(label='%s High' % component_name)
+        plt.plot([], [], ' ', label="HR=%5.3f" % hazard_ratio)
+        plt.plot([], [], ' ', label="p-val=%5.3f" % p_value)
         plt.xlabel('Years')
-        plt.title("Kaplan-Meier plot stratified by %s; %s->%s" % (
-            component_name, self.train_basename[:4], self.eval_basename[:4]))
+        plt.title("Kaplan-Meier stratified by %s; %s->%s" % (
+            component_name, self.train_basename[:4], self.eval_basename[:4], ))
+        plt.legend()
         if self.saveplots:
             figpath = self.plots_dir + 'kaplan_meier_%s_%s_stratified_by_%s.pdf' % (
                 self.train_basename[:4], self.eval_basename[:4], component_name)
@@ -173,8 +191,10 @@ class SurvivalAnalysis:
         assert df.index.name == self.patient_id_colname
         assert self.event_colname in df.columns
         assert self.time_colname in df.columns
-        for component in component_list:
-            assert component in df.columns
+        for c in component_list:
+            assert c in df.columns
+            assert df[c].max() == 1  # check thresholding
+            assert df[c].min() == 0
 
         required_columns = [self.time_colname, self.event_colname] + component_list
         sub_df = df[required_columns]
@@ -202,30 +222,62 @@ class SurvivalAnalysis:
 
         return survival_all_df
 
+    def threshold_components_df(self, df, percentile=50):
+        all_components = [c for c in df.columns if c not in [self.time_colname, self.event_colname]]
+        t_df = df.copy()
+        for c in all_components:
+            t = np.percentile(df[c], percentile)
+            t_df[c] = [1 if v > t else 0 for v in df[c]]
+        return t_df
 
-def run_survival_analysis(train_basename, eval_basename):
-    sa = SurvivalAnalysis(train_basename, eval_basename, saveplots=True)
-    survival_all_df = sa.make_combined_survival_df()
-    all_components = survival_all_df.columns
-    all_components = [c for c in all_components if c not in [sa.time_colname, sa.event_colname]]
-    print(all_components)
-    for c in all_components:
-        cph = sa.run_once_coxs_proportional_hazards(survival_all_df, [c])
-        print('%s concordance: %5.3f' % (c, cph.concordance_index_))
+    def run_survival_analysis(self):
+        thresholded_survival_df = self.threshold_components_df(
+            self.make_combined_survival_df(), 50)
+        all_components = thresholded_survival_df.columns
+        all_components = [c for c in all_components
+                          if c not in [self.time_colname, self.event_colname]]
+        print(all_components)
+        report_df = pd.DataFrame(columns=('Component', 'Concordance', 'HR', 'p-val'))
+        report_df.set_index('Component', inplace=True)
+        for c in all_components:
+            cph = self.run_once_coxs_proportional_hazards(thresholded_survival_df, [c])
+            assert len(cph.hazard_ratios_) == 1
+            hazard_ratio = cph.hazard_ratios_[0]
+            # noinspection PyProtectedMember
+            p_val = cph._compute_p_values()[0]
+            concordance = cph.concordance_index_
+            report_df.loc[c] = [concordance, hazard_ratio, p_val]
 
-    cph = sa.run_once_coxs_proportional_hazards(survival_all_df, all_components)
-    cph.print_summary(decimals=3)
+        report_fname = self.plots_dir + 'survival_analysis_table_%s_%s_%s.tex' % (
+            self.survival_or_relapse, self.train_basename[:4], self.eval_basename[:4])
+        with pd.option_context('display.float_format', '{:0.3f}'.format):
+            # print(report_df)
+            report_tex = report_df.to_latex()
+            print("Writing LaTeX report to ")
+        if self.saveplots:
+            print("Saving table to %s", report_fname)
+            with open(report_fname, 'w') as f:
+                f.write(report_tex)
 
-    for c in all_components:
-        sa.plot_component_stratified_survival(survival_all_df, c, show=True)
+        cph = self.run_once_coxs_proportional_hazards(thresholded_survival_df, all_components)
+        cph.print_summary(decimals=3)
 
-    sa.plot_unstratified_survival(survival_all_df, show=True)
+        for c in all_components:
+            self.plot_component_stratified_survival(thresholded_survival_df, c, show=False)
+
+        self.plot_unstratified_survival(thresholded_survival_df, show=False)
 
 
 def main():
-    run_survival_analysis('TCGA_OV_VST', 'TCGA_OV_VST')
+    sa = SurvivalAnalysis('TCGA_OV_VST', 'TCGA_OV_VST', saveplots=True)
+    sa.run_survival_analysis()
 
-    run_survival_analysis('TCGA_OV_VST', 'AOCS_Protein')
+    sa = SurvivalAnalysis('TCGA_OV_VST', 'AOCS_Protein', saveplots=True)
+    sa.run_survival_analysis()
+
+    sa = SurvivalAnalysis('TCGA_OV_VST', 'AOCS_Protein',
+                          survival_or_relapse='pfs', saveplots=True)
+    sa.run_survival_analysis()
 
 
 if __name__ == '__main__':

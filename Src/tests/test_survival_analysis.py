@@ -16,8 +16,9 @@ class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
             g = 50
             n = 10
             k = 3
-            X = np.random.randn(g, n) + 2.0
-            X[X < 0] = 0  # Ensure +ve
+            X = np.random.randn(g, n) + 1.0
+            if facto_class == NMF_Factorizer:
+                X[X < 0] = 0  # Ensure +ve
 
             facto = facto_class(n_components=k, tol=0.001)
             facto.fit(X)
@@ -52,7 +53,8 @@ class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
         self.sa.plot_unstratified_survival(self.survival_df, show=False)
 
     def test_run_coxs_proportional_hazards(self):
-        self.sa.run_once_coxs_proportional_hazards(self.survival_df, ['NMF_1_of_3'])
+        self.sa.run_once_coxs_proportional_hazards(
+            self.sa.threshold_components_df(self.survival_df), ['NMF_1_of_3'])
 
     def test_make_combined_survival_df(self):
         df = self.sa.make_combined_survival_df()
@@ -62,11 +64,16 @@ class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
         print(all_components)
         assert len(all_components) >= 3
 
+    def test_threshold_components_df(self):
+        survival_thresholded_df = self.sa.threshold_components_df(self.survival_df)
+        print(survival_thresholded_df.describe())
+
     def test_plot_component_stratified_survival(self):
         facto_name = 'NMF'
         nc = 3
+        survival_thresholded_df = self.sa.threshold_components_df(self.survival_df)
         for comp in ['%s_%d_of_%d' % (facto_name, i, nc) for i in range(1, nc + 1)]:
-            self.sa.plot_component_stratified_survival(self.survival_df, comp, show=False)
+            self.sa.plot_component_stratified_survival(survival_thresholded_df, comp, show=True)
 
 
 class SurvivalAnalysisTestsTcgaAocs(SurvivalAnalysisTestsTcgaTcga):
