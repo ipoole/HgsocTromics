@@ -174,14 +174,9 @@ class SurvivalAnalysis:
         plt.plot([], [], ' ', label="HR=%5.3f" % hazard_ratio)
         plt.plot([], [], ' ', label="p-val=%5.3f" % p_value)
         plt.xlabel('Years')
-        plt.title("Kaplan-Meier stratified by %s; %s->%s" % (
+        plt.title("Kaplan-Meier %s; %s->%s" % (
             component_name, self.train_basename[:4], self.eval_basename[:4], ))
         plt.legend()
-        if self.saveplots:
-            figpath = self.plots_dir + 'kaplan_meier_%s_%s_stratified_by_%s.pdf' % (
-                self.train_basename[:4], self.eval_basename[:4], component_name)
-            print("Saving figure to", figpath)
-            plt.savefig(figpath, bbox_inches='tight')
 
         if show:
             plt.show()
@@ -230,7 +225,7 @@ class SurvivalAnalysis:
             t_df[c] = [1 if v > t else 0 for v in df[c]]
         return t_df
 
-    def run_survival_analysis(self):
+    def run_survival_analysis(self, show=True):
         thresholded_survival_df = self.threshold_components_df(
             self.make_combined_survival_df(), 50)
         all_components = thresholded_survival_df.columns
@@ -262,10 +257,23 @@ class SurvivalAnalysis:
         cph = self.run_once_coxs_proportional_hazards(thresholded_survival_df, all_components)
         cph.print_summary(decimals=3)
 
-        for c in all_components:
-            self.plot_component_stratified_survival(thresholded_survival_df, c, show=True)
+        plt.figure(figsize=(16, 20))
+        for i, c in enumerate(all_components):
+            plt.subplot(4, 3, i+1)
+            self.plot_component_stratified_survival(thresholded_survival_df, c, show=False)
+        assert len(all_components) == 11
+        # We've plotted 11 graphs, so fill up the 12th with unstratified survival
+        plt.subplot(4, 3, 12)
+        self.plot_unstratified_survival(thresholded_survival_df, show=show)
 
-        self.plot_unstratified_survival(thresholded_survival_df, show=True)
+        if self.saveplots:
+            figpath = self.plots_dir + 'multiple_kaplan_meier_%s_%s.pdf' % (
+                self.train_basename[:4], self.eval_basename[:4])
+            print("Saving figure to", figpath)
+            plt.savefig(figpath, bbox_inches='tight')
+
+        if show:
+            plt.show()
 
 
 def main():

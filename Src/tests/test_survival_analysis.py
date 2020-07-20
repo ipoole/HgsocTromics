@@ -73,7 +73,7 @@ class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
         nc = 3
         survival_thresholded_df = self.sa.threshold_components_df(self.survival_df)
         for comp in ['%s_%d_of_%d' % (facto_name, i, nc) for i in range(1, nc + 1)]:
-            self.sa.plot_component_stratified_survival(survival_thresholded_df, comp, show=True)
+            self.sa.plot_component_stratified_survival(survival_thresholded_df, comp, show=False)
 
 
 class SurvivalAnalysisTestsTcgaAocs(SurvivalAnalysisTestsTcgaTcga):
