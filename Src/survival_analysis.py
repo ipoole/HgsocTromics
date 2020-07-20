@@ -264,7 +264,7 @@ class SurvivalAnalysis:
         assert len(all_components) == 11
         # We've plotted 11 graphs, so fill up the 12th with unstratified survival
         plt.subplot(4, 3, 12)
-        self.plot_unstratified_survival(thresholded_survival_df, show=show)
+        self.plot_unstratified_survival(thresholded_survival_df, show=False)
 
         if self.saveplots:
             figpath = self.plots_dir + 'multiple_kaplan_meier_%s_%s.pdf' % (
