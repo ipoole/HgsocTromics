@@ -263,9 +263,9 @@ class SurvivalAnalysis:
         cph.print_summary(decimals=3)
 
         for c in all_components:
-            self.plot_component_stratified_survival(thresholded_survival_df, c, show=False)
+            self.plot_component_stratified_survival(thresholded_survival_df, c, show=True)
 
-        self.plot_unstratified_survival(thresholded_survival_df, show=False)
+        self.plot_unstratified_survival(thresholded_survival_df, show=True)
 
 
 def main():
