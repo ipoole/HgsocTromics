@@ -6,14 +6,16 @@
    * Perform Cox's Hazard with H factors as predictors
 """
 
-import numpy as np
 import os
-from factor_clustering import FactorClustering
-import pandas as pd
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from lifelines import KaplanMeierFitter, CoxPHFitter
 from scipy.linalg import lstsq
 from scipy.optimize import nnls
+
+from factor_clustering import FactorClustering
 
 
 class SurvivalAnalysis:
@@ -153,7 +155,7 @@ class SurvivalAnalysis:
         assert self.time_colname in df.columns
         assert self.event_colname in df.columns
         assert component_name in df.columns
-        assert df[component_name].max() == 1   # check thresholding
+        assert df[component_name].max() == 1  # check thresholding
         assert df[component_name].min() == 0
 
         df_low = df[df[component_name] == 0]
@@ -175,7 +177,7 @@ class SurvivalAnalysis:
         plt.plot([], [], ' ', label="p-val=%5.3f" % p_value)
         plt.xlabel('Years')
         plt.title("Kaplan-Meier %s; %s->%s" % (
-            component_name, self.train_basename[:4], self.eval_basename[:4], ))
+            component_name, self.train_basename[:4], self.eval_basename[:4],))
         plt.legend()
 
         if show:
@@ -225,6 +227,57 @@ class SurvivalAnalysis:
             t_df[c] = [1 if v > t else 0 for v in df[c]]
         return t_df
 
+    @staticmethod
+    def plot_hr_bars(thedict, show=True):
+        """ Argument is a dictionary of dictionaries
+        {component_name: {analysis_name:(hr, pvalue)}, where component_name is e.g. 'PCA_1_of_3',
+        analysis_name is one of 'TCGA->TCGA(OR)', 'TCGA->OACS(OR), 'TCGA->OACS(PFS)'
+        """
+
+        all_components = list(thedict.keys())
+        first_component = all_components[0]
+        all_analyses = thedict[first_component].keys()
+        n_components = len(all_components)
+        n_analyses = len(thedict[first_component].keys())
+        assert n_analyses == 3
+        print(n_components, n_analyses)
+        coloursdict = {'NMF': u'#1f77b4', 'ICA': u'#ff7f0e', 'PCA': u'#2ca02c'}
+        # these are from the standard matplotlib colour cycle
+        fill_colour = coloursdict[first_component[:3]]
+        edge_colours = ['r', 'g', 'b']  # Colour to distinguish each analysis
+
+        x = np.arange(n_components)
+        w = 0.25
+        for ai, a in enumerate(all_analyses):
+            hrs = np.zeros(n_components)
+            pvals = np.zeros(n_components)
+
+            for ci, c in enumerate(all_components):
+                hrs[ci], pvals[ci] = thedict[c][a]
+                assert hrs[ci] > 0
+                assert pvals[ci] < 1
+                hrs[ci] = np.log2(hrs[ci])
+            print(x)
+            print(hrs)
+            bar = plt.bar(x + ai * w, hrs, width=w - 0.03, label=a,
+                          color=fill_colour, edgecolor=edge_colours[ai], linewidth=3)
+            plt.xticks(x + w, all_components)
+            # add p-vals
+            for rect, p in zip(bar, pvals):
+                h = rect.get_height()
+                xx = rect.get_x()
+                if h > 0:
+                    plt.text(xx, h + 0.01, 'p='+("%.3f" % p)[1:], ha='left', va='bottom', size=8)
+                else:
+                    plt.text(xx, h - 0.01, 'p='+("%.3f" % p)[1:], ha='left', va='top', size=8)
+            plt.gca().margins(0.1)
+        plt.plot([-w / 2, n_components - w * 1.5], [0, 0], c='k')
+        plt.ylabel('$log_2$(HR)')
+
+        plt.legend()
+        if show:
+            plt.show()
+
     def run_survival_analysis(self, show=True):
         thresholded_survival_df = self.threshold_components_df(
             self.make_combined_survival_df(), 50)
@@ -234,6 +287,7 @@ class SurvivalAnalysis:
         print(all_components)
         report_df = pd.DataFrame(columns=('Component', 'Concordance', 'HR', 'p-val'))
         report_df.set_index('Component', inplace=True)
+
         for c in all_components:
             cph = self.run_once_coxs_proportional_hazards(thresholded_survival_df, [c])
             assert len(cph.hazard_ratios_) == 1
@@ -259,7 +313,7 @@ class SurvivalAnalysis:
 
         plt.figure(figsize=(16, 20))
         for i, c in enumerate(all_components):
-            plt.subplot(4, 3, i+1)
+            plt.subplot(4, 3, i + 1)
             self.plot_component_stratified_survival(thresholded_survival_df, c, show=False)
         assert len(all_components) == 11
         # We've plotted 11 graphs, so fill up the 12th with unstratified survival
@@ -267,25 +321,51 @@ class SurvivalAnalysis:
         self.plot_unstratified_survival(thresholded_survival_df, show=False)
 
         if self.saveplots:
-            figpath = self.plots_dir + 'multiple_kaplan_meier_%s_%s.pdf' % (
-                self.train_basename[:4], self.eval_basename[:4])
+            figpath = self.plots_dir + 'multiple_kaplan_meier_%s_%s_%s.pdf' % (
+                self.survival_or_relapse, self.train_basename[:4], self.eval_basename[:4])
             print("Saving figure to", figpath)
             plt.savefig(figpath, bbox_inches='tight')
 
         if show:
             plt.show()
 
+        return report_df
+
 
 def main():
-    sa = SurvivalAnalysis('TCGA_OV_VST', 'TCGA_OV_VST', saveplots=True)
-    sa.run_survival_analysis()
+    show = False
+    saveplots = True
 
-    sa = SurvivalAnalysis('TCGA_OV_VST', 'AOCS_Protein', saveplots=True)
-    sa.run_survival_analysis()
+    sa = SurvivalAnalysis('TCGA_OV_VST', 'TCGA_OV_VST', saveplots=saveplots)
+    TCGA_os_df = sa.run_survival_analysis(show=show)
 
-    sa = SurvivalAnalysis('TCGA_OV_VST', 'AOCS_Protein',
-                          survival_or_relapse='pfs', saveplots=True)
-    sa.run_survival_analysis()
+    sa = SurvivalAnalysis('TCGA_OV_VST', 'AOCS_Protein', saveplots=saveplots)
+    AOCS_os_df = sa.run_survival_analysis(show=show)
+
+    sa = SurvivalAnalysis('TCGA_OV_VST', 'AOCS_Protein', survival_or_relapse='pfs',
+                          saveplots=saveplots)
+    AOCS_pfs_df = sa.run_survival_analysis(show=show)
+
+    # Build a dictionary of all results to create a summary bar-plot
+
+    thedict = {}
+    for component in TCGA_os_df.index:
+        adict = {}
+        for df, analysis_name in zip([TCGA_os_df, AOCS_os_df, AOCS_pfs_df],
+                                     ['TCGA(OS)', 'AOCS(OS)', 'AOCS(PFS)']):
+            adict[analysis_name] = (df['HR'][component], df['p-val'][component])
+        thedict[component] = adict
+
+    print(thedict)
+
+    for component_prefix in ['NMF', 'ICA', 'PCA']:
+        partial_dict = {k: v for k, v in thedict.items() if k[:3] == component_prefix}
+        plt.figure(figsize=(3 * len(partial_dict), 4))
+        SurvivalAnalysis.plot_hr_bars(partial_dict, show=False)
+        if saveplots:
+            figpath = sa.plots_dir + 'survival_summary_barplots_%s.pdf' % component_prefix
+            print("Saving figure to", figpath)
+            plt.savefig(figpath, bbox_inches='tight')
 
 
 if __name__ == '__main__':

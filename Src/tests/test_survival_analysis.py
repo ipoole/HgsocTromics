@@ -75,6 +75,16 @@ class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
         for comp in ['%s_%d_of_%d' % (facto_name, i, nc) for i in range(1, nc + 1)]:
             self.sa.plot_component_stratified_survival(survival_thresholded_df, comp, show=False)
 
+    def test_plot_hr_bars(self):
+        thedict = {"PCA_1_of_3": {"TCGA(OR)": (1.2, 0.1),
+                                  "AOCS(OR)": (0.9, 0.2),
+                                  "AOCS(PFS)": (1.4, 0.06)},
+                   "PCA_2_of_3": {"TCGA(OR)": (1.1, 0.01),
+                                  "AOCS(OR)": (1.3, 0.02),
+                                  "AOCS(PFS)": (1.1, 0.09)}}
+
+        SurvivalAnalysis.plot_hr_bars(thedict, show=False)
+
 
 class SurvivalAnalysisTestsTcgaAocs(SurvivalAnalysisTestsTcgaTcga):
     # This version exercises cross application; metagenes from TCGA applied to AOCS
