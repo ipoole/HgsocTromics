@@ -8,6 +8,7 @@ import gzip
 import numpy as np
 import pandas as pd
 import pickle
+import tempfile
 import wget
 import mygene
 
@@ -15,12 +16,13 @@ import mygene
 # noinspection PyStringFormat,PyMethodMayBeStatic
 class GeneEnrichment:
     # Analyse standard deviation of components
-    def __init__(self, basename, prefix):
+    def __init__(self, basename, method):
         self.basename = basename
-        self.prefix = prefix  # prefix to results files
+        self.method = method
         self._gene_symbols = None
         self.cache_dir = '../Cache/%s/GeneEnrichment/' % self.basename
         self.gene_column_name = 'Gene_ID' if 'Canon' in self.basename else 'GeneENSG'
+        self._go_enrichment_study = None     # will be lazily evaluated
         os.makedirs(self.cache_dir, exist_ok=True)
 
     def download_and_cache_resources(self):
@@ -123,107 +125,92 @@ class GeneEnrichment:
 
         return selection
 
-    def ranked_genes_by_component(self, metagene_matrix):
-        W = metagene_matrix
-        ranked_genes_by_component = {}
-        for ci in range(metagene_matrix.shape[1]):
-            _genes = self.select_influential_genes(W[:, ci])
-            ranked_genes_by_component[ci] = _genes
-        return ranked_genes_by_component
-
-    def _perform_gene_enrichment_analysis_one_component(self, ci, gea_results_by_component, gea):
-        tsv_name = self.cache_dir + '%s_gea_C%d.tsv' % (self.prefix, ci)
-        if len(gea_results_by_component[ci]) > 0:
-            with open(tsv_name, 'w') as f:
-                gea.prt_tsv(f, gea_results_by_component[ci])
-            ge_df = pd.read_csv(tsv_name, sep='\t')
+    def _extract_gene_enrichment_results_one_component(self, ci, gea_result, prefix, gea):
+        tmp_fname = self.cache_dir + 'gea_tmp.tsv'  # Beware if running in parallel!
+        significance_column = 'p_%s' % self.method
+        if len(gea_result) > 0:
+            with open(tmp_fname, 'w') as f:
+                gea.prt_tsv(f, gea_result)
+            ge_df = pd.read_csv(tmp_fname, sep='\t')
 
             ge_df.rename(columns={'# GO': 'GO_ID'}, inplace=True)
             ge_df.set_index('GO_ID', inplace=True)
             ge_df.drop(columns=['NS', 'enrichment', 'p_uncorrected'], inplace=True)
-            if 'p_fdr' in ge_df.columns:
-                ge_df = ge_df[ge_df['p_fdr'] <= 0.05]
-            else:
-                ge_df = ge_df[ge_df['p_bonferroni'] <= 0.05]
+            ge_df = ge_df[ge_df[significance_column] <= 0.05]
             ge_df['Component'] = ci
             return ge_df
         else:
             return None
 
-    def perform_gene_enrichment_analysis(self, metagene_matrix, method='fdr'):
-        # Load the Gene Ontology
-        n_comps = metagene_matrix.shape[1]
+    def go_enrichment_study(self):
+        if self._go_enrichment_study is None:
+            # Load the Gene Ontology
+            self.download_and_cache_resources()  # Download ontology and annotations, if necessary
+            gene_ontology = obo_parser.GODag('../DownloadedResources/go-basic.obo')
+            # Load the human annotations
+            c = 0
+            with gzip.open('../DownloadedResources/goa_human.gaf.gz', 'rt') as gaf:
+                funcs = {}
+                for entry in GOA.gafiterator(gaf):
+                    c += 1
+                    uniprot_id = entry.pop('DB_Object_Symbol')
+                    funcs[uniprot_id] = entry
+            # Our population is the set of genes we are analysing
+            population = self.gene_symbols()
+            print("We have %d genes in our population" % len(population))
+            # Build associations from functional annotations we got from the gaf file
+            associations = {}
+            for x in funcs:
+                if x not in associations:
+                    associations[x] = set()
+                associations[x].add(str(funcs[x]['GO_ID']))
+            self._go_enrichment_study = \
+                GOEnrichmentStudy(population, associations, gene_ontology,
+                                  propagate_counts=True,
+                                  alpha=0.05,
+                                  methods=[self.method])
+        return self._go_enrichment_study
 
-        self.download_and_cache_resources()   # Download ontology and annotations, if necessary
-        gene_ontology = obo_parser.GODag('../DownloadedResources/go-basic.obo')
-
-        # Load the human annotations
-        c = 0
-        with gzip.open('../DownloadedResources/goa_human.gaf.gz', 'rt') as gaf:
-            funcs = {}
-            for entry in GOA.gafiterator(gaf):
-                c += 1
-                uniprot_id = entry.pop('DB_Object_Symbol')
-                funcs[uniprot_id] = entry
-
-        # Our population is the set of genes we are analysing
-
-        population = self.gene_symbols()
-        print("We have %d genes in our population" % len(population))
-
-        # Build associations from functional annotations we got from the gaf file
-        associations = {}
-        for x in funcs:
-            if x not in associations:
-                associations[x] = set()
-            associations[x].add(str(funcs[x]['GO_ID']))
-
-        gea = GOEnrichmentStudy(population, associations, gene_ontology,
-                                propagate_counts=True,
-                                alpha=0.05,
-                                methods=[method])
-        gea_results_by_component = {}
-        rankings = self.ranked_genes_by_component(metagene_matrix)
-        for ci in range(n_comps):
-            study_genes = rankings[ci]
-            print('\nComp. %d: %s...' % (ci, str(study_genes[:10])))
-            gea_results_by_component[ci] = gea.run_study(study_genes)
-
-        # Get results into a dataframe per component.  Easiest way is to use routine to
-        # write a .tsv file, then read back and filter
+    def perform_gene_enrichment_analysis(self, metagene_matrix, prefix):
+        """ Analyse all the components in the given matrix, producing a single .tsv file
+        summarising the enrichment results"""
+        goe = self.go_enrichment_study()    # lazily deal with the GO, associations, population...
 
         gea_results_df_by_component = []
+        n_comps = metagene_matrix.shape[1]
         for ci in range(n_comps):
-            ge_df = self._perform_gene_enrichment_analysis_one_component(
-                ci, gea_results_by_component, gea)
+            metagene = metagene_matrix[:, ci]
+            study_genes = self.select_influential_genes(metagene)
+            print('\n%s[%d]: %s...' % (prefix, ci, str(study_genes[:10])))
+            gea_result = goe.run_study(study_genes)
+
+            # Get results into a dataframe per component.
+            ge_df = self._extract_gene_enrichment_results_one_component(
+                ci, gea_result, prefix, goe)
             if ge_df is not None:
                 gea_results_df_by_component += [ge_df]
 
-        # Merge the per-component dataframes into a single one
-        gea_all_sig_results_df = pd.DataFrame()
-        gea_all_sig_results_df = gea_all_sig_results_df.append(gea_results_df_by_component)
-
-        gea_all_sig_results_df.to_csv(self.cache_dir + '%s_gea_all.tsv' % self.prefix, sep='\t')
+        # Concatenate the per-component dataframes into a single one
+        gea_all_sig_results_df = pd.concat(gea_results_df_by_component, axis=0)
+        all_results_fname = self.cache_dir + '%s_gea_%s_all.tsv' % (prefix, self.method)
+        gea_all_sig_results_df.to_csv(all_results_fname, sep='\t')
 
 
 # noinspection PyUnreachableCode
 def main():
-    ge = GeneEnrichment('TCGA_OV_VST', 'NMF_3')
-    metagenes = ge.read_metagene_matrix('NMF_median_factor_3.tsv')
-    ge.perform_gene_enrichment_analysis(metagenes, method='bonferroni')
+    ge = GeneEnrichment('TCGA_OV_VST', method='bonferroni')
 
-    ge = GeneEnrichment('TCGA_OV_VST', 'ICA_3')
-    metagenes = ge.read_metagene_matrix('ICA_median_factor_3.tsv')
-    ge.perform_gene_enrichment_analysis(metagenes, method='bonferroni')
+    def run_one(facto_name, nc):
+        factor_fname = '%s_median_factor_%d.tsv' % (facto_name, nc)
+        prefix = '%s_%d' % (facto_name, nc)
+        metagenes = ge.read_metagene_matrix(factor_fname)
+        ge.perform_gene_enrichment_analysis(metagenes, prefix)
 
-    ge = GeneEnrichment('TCGA_OV_VST', 'PCA_3')
-    metagenes = ge.read_metagene_matrix('PCA_median_factor_3.tsv')
-    ge.perform_gene_enrichment_analysis(metagenes, method='bonferroni')
-
-    # Demonstrate on the Canon dataset
-    ge = GeneEnrichment('Canon_N200', 'NMF_3')
-    metagenes = ge.read_metagene_matrix('NMF_median_factor_3.tsv')
-    ge.perform_gene_enrichment_analysis(metagenes, method='bonferroni')
+    # These are the 11 components we have decided to analyse.   Result will be to create
+    # a file in cache for each factorizer - e.g. 'NMF_3_gea_al.tsv'
+    run_one('NMF', 3)
+    run_one('ICA', 5)
+    run_one('PCA', 3)
 
 
 if __name__ == '__main__':

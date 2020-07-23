@@ -13,7 +13,7 @@ class TestGeneEnrichment(unittest.TestCase):
         return 'Mini_AOCS'
 
     def setUp(self):
-        self.ge = GeneEnrichment(self.basename(), 'RND_3_kegg')  # 'RND' : RaNDom!
+        self.ge = GeneEnrichment(self.basename(), method='bonferroni')
         np.random.seed(42)
 
         nc = 3
@@ -51,6 +51,10 @@ class TestGeneEnrichment(unittest.TestCase):
     def test_cache_downloaded_resources(self):
         self.ge.download_and_cache_resources()
 
+    def test_go_enrichment_study(self):
+        goenv = self.ge.go_enrichment_study()
+        assert goenv is not None
+
     def test_read_metagene_matrix(self):
         mgmat = self.ge.read_metagene_matrix('RND_median_factor_3.tsv')
         assert mgmat.ndim == 2
@@ -78,14 +82,10 @@ class TestGeneEnrichment(unittest.TestCase):
         assert selection[0] == self.ge.gene_symbols()[0]
         assert selection[1] == self.ge.gene_symbols()[10]
 
-    def test_ranked_genes_by_component(self):
-        rankings = self.ge.ranked_genes_by_component(self.random_metagene_matrix)
-        assert len(list(rankings)) == 3
-        print(rankings[0])
-
     def test_perform_gene_enrichment_analysis(self):
         # The Bonferroni method is faster for testing; use 'fdr' (default) in anger
-        self.ge.perform_gene_enrichment_analysis(self.random_metagene_matrix, method='bonferroni')
+        self.ge.perform_gene_enrichment_analysis(self.random_metagene_matrix,
+                                                 prefix='RND_3_kegg')
 
 
 class TestGeneEnrichmentCanon(TestGeneEnrichment):

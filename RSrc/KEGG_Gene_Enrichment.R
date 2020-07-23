@@ -45,6 +45,7 @@ getKeyGenes<-function(full,IC){
 
 # ====== Main Program =========
 
+
 setwd("/home/ipoole/Documents/gitrepos/HgsocTromics/RSrc")
 
 datasetname = 'AOCS_Protein'
@@ -53,26 +54,57 @@ n_components = 3
 
 factor_file_path = sprintf('../Factors/%s/%s_median_factor_%d.tsv', datasetname, facto, n_components)
 results_file_path = sprintf('../Cache/%s/GeneEnrichment/%s_%d_kegg_ge_all.tsv', datasetname, facto, n_components)
-dir.create(dirname(factor_file_path))
-dir.create(dirname(results_file_path))
+#dir.create(dirname(factor_file_path))
+#dir.create(dirname(results_file_path))
 cat('Starting ...')
 
-ensembl<-useMart("ensembl",dataset="hsapiens_gene_ensembl")
-                       
+extract_hugo_population <- function(ensg_list){
+    ensembl<-useMart("ensembl",dataset="hsapiens_gene_ensembl")
+    
+    # Load your metagene matrix with genes as rows and genenames as rownames, ICs as columns with column names "IC1","IC2"... or something similar
+    ICs<-read.table(factor_file_path, header=T, row.names=1, sep="\t")
+    
+    # Get the list of ensembl IDs in our study
+    all_ensembl<-rownames(ICs)
+    
+    # Create a dataframe of these IDs, with columns for entrezgene_id and symbol
+    gene_anno_all<-getBM(attributes=c('ensembl_gene_id', 'entrezgene_id', 'hgnc_symbol'),filters='ensembl_gene_id',values=all_ensembl,mart=ensembl)
+    
+    # Extract a plane list of all the entrez gene IDs
+    hugo_genes_all<-as.character(gene_anno_all[gene_anno_all[,'ensembl_gene_id'] %in% all_ensembl,'entrezgene_id'])
+    
+    return (hugo_genes_all)
+}
+
+run_enrichKEGG <- function(hugo_genes, hugo_genes_all){
+    genes<-as.character(keygenes[is.na(keygenes[,'Genes'])==FALSE,1])
+    
+    # genes is now a simple list of entrez gene ids.  Need to annotate same as for gene_anno above
+    gene_anno<-getBM(attributes=c('ensembl_gene_id', 'entrezgene_id', 'hgnc_symbol'), filters='ensembl_gene_id', values=genes, mart=ensembl)
+    hugo_genes<-unique(as.character(gene_anno[gene_anno[,'ensembl_gene_id'] %in% genes, 'entrezgene_id']))
+    
+    # So we can now pass these genes to gene_enrichment function
+    
+    kegg_result <- clusterProfiler::enrichKEGG(
+        gene          = hugo_genes,
+        universe      = hugo_genes_all,
+        organism         = 'hsa',
+        pAdjustMethod = "BH",
+        pvalueCutoff  = 0.05,
+        qvalueCutoff  = 0.05)
+    
+    return (keg_result)
+}
+
 # Load your metagene matrix with genes as rows and genenames as rownames, ICs as columns with column names "IC1","IC2"... or something similar
 ICs<-read.table(factor_file_path, header=T, row.names=1, sep="\t")
-    
-# Get the list of ensembl IDs in our study
-all_ensembl<-rownames(ICs)
 
-# Create a dataframe of these IDs, with columns for entrezgene_id and symbol
-gene_anno_all<-getBM(attributes=c('ensembl_gene_id', 'entrezgene_id', 'hgnc_symbol'),filters='ensembl_gene_id',values=all_ensembl,mart=ensembl)
+hugo_genes_all <-  extract_hugo_population(rownames(ICs))
 
-# Extract a plane list of all the entrez gene IDs
-hugo_genes_all<-as.character(gene_anno_all[gene_anno_all[,'ensembl_gene_id'] %in% all_ensembl,'entrezgene_id'])
 
 # We'll deal with just the first of three components.  getKeyGenes() returns a dataframe with ''above''Direction' column ('above' or 'below')
 kegg_results <- list()
+                                        
 for (ic in 1: n_components){
     keygenes<-getKeyGenes(ICs, ic)
     genes<-as.character(keygenes[is.na(keygenes[,'Genes'])==FALSE,1])
