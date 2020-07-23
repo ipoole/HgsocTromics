@@ -84,8 +84,12 @@ class TestGeneEnrichment(unittest.TestCase):
 
     def test_perform_gene_enrichment_analysis(self):
         # The Bonferroni method is faster for testing; use 'fdr' (default) in anger
-        self.ge.perform_gene_enrichment_analysis(self.random_metagene_matrix,
-                                                 prefix='RND_3_kegg')
+        fname, df = self.ge.perform_gene_enrichment_analysis(
+            self.random_metagene_matrix, prefix='RND_3_kegg')
+        assert df.columns[0] == 'facto_nc'
+        assert df.columns[1] == 'comp'
+
+        self.ge.filter_and_generate_results(fname)
 
 
 class TestGeneEnrichmentCanon(TestGeneEnrichment):
