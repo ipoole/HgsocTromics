@@ -8,7 +8,11 @@ from survival_analysis import SurvivalAnalysis
 class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
 
     def setUp(self):
-        self.sa = SurvivalAnalysis('TCGA_OV_VST', 'TCGA_OV_VST', saveplots=False)
+        """ We test with factors (metagenes) and expression matrix from Factors/Mini_AOCS and
+         metadata from Data/Mini_AOCS, both of which are comited.  Note
+         that the metadata rows (patients/samples) are deliberately NOT in the same order
+         as in the columns of the expression matrix.   The code has to deal with this."""
+        self.sa = SurvivalAnalysis('Mini_AOCS', 'Mini_AOCS', saveplots=False)
         self.survival_df = self.sa.make_survival_df('NMF', 3)
 
     def test_compute_H_from_W_and_X(self):
@@ -84,13 +88,6 @@ class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
                                   "AOCS(PFS)": (1.1, 0.09)}}
 
         SurvivalAnalysis.plot_hr_bars(thedict, show=False)
-
-
-class SurvivalAnalysisTestsTcgaAocs(SurvivalAnalysisTestsTcgaTcga):
-    # This version exercises cross application; metagenes from TCGA applied to AOCS
-    def setUp(self):
-        self.sa = SurvivalAnalysis('TCGA_OV_VST', 'AOCS_Protein')
-        self.survival_df = self.sa.make_survival_df('NMF', 3)
 
 
 if __name__ == '__main__':

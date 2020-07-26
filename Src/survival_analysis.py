@@ -23,12 +23,15 @@ class SurvivalAnalysis:
 
     def __init__(self, train_basename, eval_basename, survival_or_relapse='os',
                  saveplots=False):
+
         tcga = 'TCGA_OV_VST'
         aocs = 'AOCS_Protein'
+        mini_aocs = 'Mini_AOCS'  # for unit tests
+
         self.survival_or_relapse = survival_or_relapse
 
-        assert train_basename in [tcga, aocs]
-        assert eval_basename in [tcga, aocs]
+        assert train_basename in [tcga, aocs, mini_aocs]
+        assert eval_basename in [tcga, aocs, mini_aocs]
         assert survival_or_relapse in ['os', 'pfs']
 
         self.train_basename = train_basename

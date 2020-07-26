@@ -19,9 +19,10 @@ class Heatmaps:
     def __init__(self, train_basename, eval_basename, saveplots=False):
         tcga = 'TCGA_OV_VST'
         aocs = 'AOCS_Protein'
+        mini_aocs = 'Mini_AOCS'   # for unit tests
 
-        assert train_basename in [tcga, aocs]
-        assert eval_basename in [tcga, aocs]
+        assert train_basename in [tcga, aocs, mini_aocs]
+        assert eval_basename in [aocs, mini_aocs]
 
         self.train_basename = train_basename
         self.eval_basename = eval_basename
