@@ -152,14 +152,15 @@ class TestFactorClusteringCanon(TestFactorClustering):
     def basename(self):
         return 'Mini_Canon'
 
-
-class TestCreateIntersectionPrunedOvarianDatasets(TestCase):
-    # This is not so much a unit test, as ensuring that the pruned
-    # datasets are created on first run.  The method is lazy so no
-    # harm in repeated running.
-    @staticmethod
-    def test_create_intersection_pruned_ovarian_datasets():
-        FactorClustering.create_intersection_pruned_ovarian_datasets()
+# Following disabled because on clean checkout we will not have the input datasets.
+# Ok to enable once the TCGA and AOCS expression datasets have been copied in.
+# class TestCreateIntersectionPrunedOvarianDatasets(TestCase):
+#     # This is not so much a unit test, as ensuring that the pruned
+#     # datasets are created on first run.  The method is lazy so no
+#     # harm in repeated running.
+#     @staticmethod
+#     def test_create_intersection_pruned_ovarian_datasets():
+#         FactorClustering.create_intersection_pruned_ovarian_datasets()
 
 
 if __name__ == '__main__':

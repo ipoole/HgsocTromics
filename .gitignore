@@ -227,9 +227,10 @@ fabric.properties
 # Added by IPO, specific to HGSOC project
 Cache/**
 Plots/**
-DownloadedResources/**
 Factors/*
-!Factors/Mini_AOCS/
+!Factors/Mini_AOCS/NMF_median_factor_3.tsv
+!Factors/Mini_AOCS/ICA_median_factor_5.tsv
+!Factors/Mini_AOCS/PCA_median_factor_3.tsv
 SavedNotebookHtml/**
 Data/TCGA_OV_VST/**
 Data/AOCS_Protein/**
