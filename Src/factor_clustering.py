@@ -76,8 +76,8 @@ class FactorClustering:
     @staticmethod
     def create_intersection_pruned_ovarian_datasets():
 
-        input_filename_1 = '../Data/AOCS_Protein/AOCS_Protein_NOT_Expression.tsv'
-        input_filename_2 = '../Data/TCGA_OV_VST/TCGA_OV_VST_NOT_Expression.tsv'
+        input_filename_1 = '../Data/AOCS_Protein/AOCS_Protein_Expression.tsv'
+        input_filename_2 = '../Data/TCGA_OV_VST/TCGA_OV_VST_Expression.tsv'
 
         output_filename_1 = '../Data/AOCS_Protein/AOCS_Protein_PrunedExpression.tsv'
         output_filename_2 = '../Data/TCGA_OV_VST/TCGA_OV_VST_PrunedExpression.tsv'
