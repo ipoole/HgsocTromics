@@ -220,7 +220,7 @@ class GeneEnrichment:
                 component_df = df[(df['facto_nc'] == facto) & (df['comp'] == c)]
 
                 if len(component_df) == 0:
-                    print("Nothing to plot for", facto, nc)
+                    print("Nothing to plot for", facto, c)
                     continue
 
                 # Some components identify many go_ids and we can't plot them all.
