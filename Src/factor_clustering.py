@@ -521,14 +521,14 @@ def main():
                          3: 'TCGA_OV_VST',
                          4: 'Canon_N200'}
 
-    one_run(possible_datasets[1], 'bootstrap', saveplots=True)
-    one_run(possible_datasets[1], 'fixed', saveplots=True)
+    # one_run(possible_datasets[1], 'bootstrap', saveplots=True)
+    # one_run(possible_datasets[1], 'fixed', saveplots=True)
 
-    # one_run(possible_datasets[2], 'bootstrap', saveplots=True)
-    # one_run(possible_datasets[2], 'fixed', saveplots=True)
-    # #
-    # one_run(possible_datasets[3], 'bootstrap', saveplots=True)
-    # one_run(possible_datasets[3], 'fixed', saveplots=True)
+    one_run(possible_datasets[2], 'bootstrap', saveplots=True)
+    one_run(possible_datasets[2], 'fixed', saveplots=True)
+    #
+    one_run(possible_datasets[3], 'bootstrap', saveplots=True)
+    one_run(possible_datasets[3], 'fixed', saveplots=True)
     #
     # one_run(possible_datasets[4], 'bootstrap', saveplots=True)
     # one_run(possible_datasets[4], 'fixed', saveplots=True)
