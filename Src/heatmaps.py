@@ -22,7 +22,7 @@ class Heatmaps:
         mini_aocs = 'Mini_AOCS'   # for unit tests
 
         assert train_basename in [tcga, aocs, mini_aocs]
-        assert eval_basename in [aocs, mini_aocs]
+        assert eval_basename in [tcga, aocs, mini_aocs]
 
         self.train_basename = train_basename
         self.eval_basename = eval_basename
@@ -150,15 +150,23 @@ class Heatmaps:
         data = df[factor_cols]
         assert data.shape == (len(df), len(factor_cols))
 
-        # Add some columns which will be sored with the clustering, but to not contribute to it.
-        target_df = df[[]].copy()
-        for col in self.columns_of_interest:
-            target_df[col] = make_colour_col(df[col])
-        target_df['-'] = [(1, 1, 1, 1)] * len(target_df)  # make a white break column
+        # Add some columns which will be soreded with the clustering, but to not contribute to it.
+        if self.columns_of_interest == []:
+            target_df = None
+        else:
+            target_df = df[[]].copy()
+            for col in self.columns_of_interest:
+                target_df[col] = make_colour_col(df[col])
+            target_df['-'] = [(1, 1, 1, 1)] * len(target_df)  # make a white break column
 
         # Plot
-        fig = sns.clustermap(data, metric="correlation", standard_scale=1, row_colors=target_df)
+        fig = sns.clustermap(data, metric="correlation", standard_scale=1, row_colors=target_df,
+                             cbar_pos=None)
         plt.xlabel('Metasamples')
+        plt.ylabel('Patient')
+
+        # There are too many patients to label, so turn off y labels.
+        fig.ax_heatmap.set_yticks([])
 
         if self.saveplots:
             figpath = self.plots_dir + 'clustered_heatmap_%s_%s.pdf' % (
@@ -172,6 +180,10 @@ class Heatmaps:
 
 def main():
     hm = Heatmaps('TCGA_OV_VST', 'AOCS_Protein', saveplots=True)
+    df = hm.make_combined_df()
+    hm.plot_heatmap(df)
+
+    hm = Heatmaps('TCGA_OV_VST', 'TCGA_OV_VST', saveplots=True)
     df = hm.make_combined_df()
     hm.plot_heatmap(df)
 

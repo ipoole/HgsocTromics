@@ -208,8 +208,8 @@ class GeneEnrichment:
         assert self._gene_ontology is not None
 
         min_depth = 3
-        min_study_count = 5
-        max_go_ids_to_plot = 16
+        min_study_count = 0
+        max_go_ids_to_plot = 12
 
         df = pd.read_csv(combined_results_fname, sep='\t')
 
@@ -226,6 +226,12 @@ class GeneEnrichment:
                 # Some components identify many go_ids and we can't plot them all.
                 # So take the top n ranked by number of contributing genes.
                 component_df = component_df.sort_values('study_count', ascending=False)
+                n_all_terms = len(component_df)
+                if n_all_terms > max_go_ids_to_plot:
+                    limiting_study_count = component_df['study_count'].iloc[max_go_ids_to_plot]
+                    print('***', facto, c, "Limiting %d terms to %d, min study count %d" %
+                          (n_all_terms, max_go_ids_to_plot, limiting_study_count))
+
                 go_ids = list(component_df['GO_ID'])[:max_go_ids_to_plot]
                 lineage_fname = self.plots_dir + 'go_lineage_%d_of_%s.png' % (c, facto)
                 recs = [self._gene_ontology[t] for t in go_ids]
