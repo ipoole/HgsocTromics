@@ -151,7 +151,7 @@ class Heatmaps:
         assert data.shape == (len(df), len(factor_cols))
 
         # Add some columns which will be soreded with the clustering, but to not contribute to it.
-        if self.columns_of_interest == []:
+        if not self.columns_of_interest:
             target_df = None
         else:
             target_df = df[[]].copy()

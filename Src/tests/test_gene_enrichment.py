@@ -84,12 +84,39 @@ class TestGeneEnrichment(unittest.TestCase):
 
     def test_perform_gene_enrichment_analysis(self):
         # The Bonferroni method is faster for testing; use 'fdr' (default) in anger
-        fname, df = self.ge.perform_gene_enrichment_analysis(
+        fname, df, study_genes_dict = self.ge.perform_gene_enrichment_analysis(
             self.random_metagene_matrix, prefix='RND_3_kegg')
         assert df.columns[0] == 'facto_nc'
         assert df.columns[1] == 'comp'
 
+        print(study_genes_dict)
+
         self.ge.filter_and_generate_results(fname)
+
+    def test_jaccard(self):
+        aset = {'A', 'B', 'C'}
+        bset = {'C', 'D'}
+        j = GeneEnrichment.jaccard(aset, bset)
+        assert j == 0.25
+
+        aset = {'A', 'B', 'C'}
+        bset = set([])
+        j = GeneEnrichment.jaccard(aset, bset)
+        assert j == 0
+
+        aset = {'A'}
+        bset = {'A'}
+        j = GeneEnrichment.jaccard(aset, bset)
+        assert j == 1
+
+    def test_analyse_study_gene_jaccard(self):
+        genes_dict = {'NMF_1_of_3': ['AAA', 'BBB'],
+                      'ICA_1_of_5': ['AAA', 'CCC'],
+                      'PCA_1_of_3': ['CCC']
+                      }
+        jaccard_array = GeneEnrichment.analyse_study_gene_jaccard(genes_dict)
+
+        self.ge.plot_jaccard_heatmap(jaccard_array, list(genes_dict.keys()), show=False)
 
 
 class TestGeneEnrichmentCanon(TestGeneEnrichment):
