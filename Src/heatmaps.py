@@ -12,28 +12,12 @@ from join_metasamples_metadata import JoinMetasamplesMetadata
 
 class Heatmaps:
 
-    def __init__(self, train_basename, eval_basename, saveplots=False):
-        tcga = 'TCGA_OV_VST'
-        aocs = 'AOCS_Protein'
-        mini_aocs = 'Mini_AOCS'   # for unit tests
-
-        assert train_basename in [tcga, aocs, mini_aocs]
-        assert eval_basename in [tcga, aocs, mini_aocs]
-
-        self.train_basename = train_basename
-        self.eval_basename = eval_basename
+    def __init__(self, columns_of_interest, fig_fname=None):
 
         self.plots_dir = '../Plots/HeatMaps/'
-        self.saveplots = saveplots
+        self.fig_fname = fig_fname
         os.makedirs(self.plots_dir, exist_ok=True)
-
-        if eval_basename == tcga:
-            # TCGA
-            self.columns_of_interest = []
-        else:
-            # AOCS
-            self.columns_of_interest = ['WGD', 'Cellularity', 'HRDetect', 'Mutational_load',
-                                        'CNV_load', 'donor_survival_time']
+        self.columns_of_interest = columns_of_interest
 
     def plot_heatmap(self, df, show=True):
 
@@ -66,9 +50,8 @@ class Heatmaps:
         # There are too many patients to label, so turn off y labels.
         fig.ax_heatmap.set_yticks([])
 
-        if self.saveplots:
-            figpath = self.plots_dir + 'clustered_heatmap_%s_%s.pdf' % (
-                self.train_basename[:4], self.eval_basename[:4])
+        if self.fig_fname:
+            figpath = self.plots_dir + 'clustered_heatmap_%s.pdf' % self.fig_fname
             print("Saving figure to", figpath)
             fig.savefig(figpath, bbox_inches='tight')
 
@@ -76,20 +59,24 @@ class Heatmaps:
             plt.show()
 
 
-def run_one(train_basename, eval_basename, saveplots):
+def run_one(train_basename, eval_basename, columns_of_interest, saveplots):
     # Construct a dataframe indexed by patients, with columns for
     # metasamples and metadata
     jmsmd = JoinMetasamplesMetadata(train_basename, eval_basename)
     df = jmsmd.make_joined_df()
 
     # Plot the heatmap, saving plots with names according to datasets
-    hm = Heatmaps(train_basename, eval_basename, saveplots)
+    fig_fname = 'clustered_heatmap_%s_%s.pdf' % (train_basename, eval_basename) \
+        if saveplots else None
+    hm = Heatmaps(columns_of_interest, fig_fname)
     hm.plot_heatmap(df)
 
 
 def main():
-    run_one('TCGA_OV_VST', 'AOCS_Protein', saveplots=True)
-    run_one('TCGA_OV_VST', 'TCGA_OV_VST', saveplots=True)
+    aocs_cols = ['WGD', 'Cellularity', 'HRDetect', 'Mutational_load', 'CNV_load',
+                 'donor_survival_time']
+    run_one('TCGA_OV_VST', 'AOCS_Protein', aocs_cols, saveplots=True)
+    run_one('TCGA_OV_VST', 'TCGA_OV_VST', [], saveplots=True)
 
 
 if __name__ == '__main__':
