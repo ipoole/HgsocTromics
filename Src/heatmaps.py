@@ -51,7 +51,7 @@ class Heatmaps:
         fig.ax_heatmap.set_yticks([])
 
         if self.fig_fname:
-            figpath = self.plots_dir + 'clustered_heatmap_%s.pdf' % self.fig_fname
+            figpath = self.plots_dir + self.fig_fname
             print("Saving figure to", figpath)
             fig.savefig(figpath, bbox_inches='tight')
 
@@ -66,7 +66,7 @@ def run_one(train_basename, eval_basename, columns_of_interest, saveplots):
     df = jmsmd.make_joined_df()
 
     # Plot the heatmap, saving plots with names according to datasets
-    fig_fname = 'clustered_heatmap_%s_%s.pdf' % (train_basename, eval_basename) \
+    fig_fname = 'clustered_heatmap_%s_%s.pdf' % (train_basename[:4], eval_basename[:4]) \
         if saveplots else None
     hm = Heatmaps(columns_of_interest, fig_fname)
     hm.plot_heatmap(df)
