@@ -1,12 +1,15 @@
 import unittest
-from box_and_scatters import BoxAndScatters
+
+import numpy as np
 import pandas as pd
+
+from box_and_scatters import BoxAndScatters
 
 
 # noinspection PyMethodMayBeStatic
 class BoxAndScattersTests(unittest.TestCase):
 
-    def test_plot_boxxplots(self):
+    def test_plot_boxplots(self):
         bas = BoxAndScatters(dataset_tag='gash')
 
         # Make a trivial dataframe to plot
@@ -21,7 +24,30 @@ class BoxAndScattersTests(unittest.TestCase):
                      }
         df = pd.DataFrame.from_dict(cols_dict)
         df.set_index('PatientID', inplace=True)
-        bas.plot_boxplots(df, 'NMF', colour=u'#1f77b4', show=False)
+        bas.plot_boxplots(df, 'NMF', show=False)
+
+    def test_plot_scatters(self):
+        bas = BoxAndScatters(dataset_tag='gash')
+        # Make a trivial dataframe to plot
+        n = 20
+        cols_dict = {'PatientID': ['P%d' % (i + 1) for i in range(n)],
+                     'NMF_1_of_3': np.random.randn(n),
+                     'NMF_2_of_3': np.random.randn(n),
+                     'NMF_3_of_3': np.random.randn(n),
+                     'ICA_1_of_2': np.random.randn(n),
+                     'ICA_2_of_2': np.random.randn(n),
+                     'WGD': np.random.choice([0, 1], n),
+                     'Cellularity': np.random.randn(n),
+                     'HRDetect': np.random.randn(n),
+                     'Mutational_load': np.random.randn(n),
+                     'CNV_load': np.random.randn(n),
+                     'SV_load': np.random.randn(n),
+                     'Age': np.random.randn(n),  # an irrelevant column
+                     }
+        df = pd.DataFrame.from_dict(cols_dict)
+        df.set_index('PatientID', inplace=True)
+        df.at['P1', 'Mutational_load'] = 127424  # Test the special outlier case
+        bas.plot_scatters(df, show=False)
 
 
 if __name__ == '__main__':
