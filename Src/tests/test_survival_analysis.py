@@ -6,7 +6,7 @@ from numpy import nan
 
 
 # noinspection PyMethodMayBeStatic
-class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
+class SurvivalAnalysisTests(unittest.TestCase):
 
     def setUp(self):
         """ We test on a trivial constructed dataframe.  In fact no data will be read
@@ -26,8 +26,8 @@ class SurvivalAnalysisTestsTcgaTcga(unittest.TestCase):
                      'Age': [63, 54, 68, 69, 70]  # an irrelevant column
                      }
         self.df = pd.DataFrame.from_dict(cols_dict)
-        self.survival_df = self.sa.cleanup_and_threshold_components_df(self.df)
         self.df.set_index('PatientID', inplace=True)
+        self.survival_df = self.sa.cleanup_and_threshold_components_df(self.df)
 
     def test_plot_unstratified_survival(self):
         self.sa.plot_unstratified_survival(self.survival_df, show=False)
