@@ -10,7 +10,7 @@ from box_and_scatters import BoxAndScatters
 class BoxAndScattersTests(unittest.TestCase):
 
     def test_plot_boxplots(self):
-        bas = BoxAndScatters(dataset_tag='gash')
+        bas = BoxAndScatters(['WGD'], ['WGD'], dataset_tag='gash')
 
         # Make a trivial dataframe to plot
         cols_dict = {'PatientID': ['P1', 'P2', 'P3', 'P4', 'P5'],
@@ -27,7 +27,8 @@ class BoxAndScattersTests(unittest.TestCase):
         bas.plot_boxplots(df, 'NMF', show=False)
 
     def test_plot_scatters(self):
-        bas = BoxAndScatters(dataset_tag='gash')
+        aocs_cols = ['WGD', 'Cellularity', 'HRDetect', 'Mutational_load', 'CNV_load', 'SV_load']
+        bas = BoxAndScatters(aocs_cols[:1], aocs_cols, dataset_tag='gash')
         # Make a trivial dataframe to plot
         n = 20
         cols_dict = {'PatientID': ['P%d' % (i + 1) for i in range(n)],

@@ -75,8 +75,10 @@ def run_one(train_basename, eval_basename, columns_of_interest, saveplots):
 def main():
     aocs_cols = ['WGD', 'Cellularity', 'HRDetect', 'Mutational_load', 'CNV_load',
                  'donor_survival_time']
+    both_cols = ['Which']
     run_one('TCGA_OV_VST', 'AOCS_Protein', aocs_cols, saveplots=True)
     run_one('TCGA_OV_VST', 'TCGA_OV_VST', [], saveplots=True)
+    run_one('BOTH_AOCS_TCGA', 'BOTH_AOCS_TCGA', both_cols, saveplots=True)
 
 
 if __name__ == '__main__':

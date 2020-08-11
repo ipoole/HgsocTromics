@@ -32,11 +32,12 @@ class SurvivalAnalysis:
 
         tcga = 'TCGA_OV_VST'
         aocs = 'AOCS_Protein'
+        both = 'BOTH_AOCS_TCGA'
 
         self.survival_or_relapse = survival_or_relapse
 
-        assert train_basename in [tcga, aocs]
-        assert eval_basename in [tcga, aocs]
+        assert train_basename in [tcga, aocs, both]
+        assert eval_basename in [tcga, aocs, both]
         assert survival_or_relapse in ['os', 'pfs']
 
         self.train_basename = train_basename
@@ -53,11 +54,12 @@ class SurvivalAnalysis:
             self.event_colname = 'vital_status'
             self.event_recode_dict = {'Alive': 0, 'Dead': 1}
         else:
-            # AOCS
+            # AOCS or BOTH
             if survival_or_relapse == 'os':
                 self.time_colname = 'donor_survival_time'
                 self.event_colname = 'os_event'
             else:
+                assert self.event_colname == aocs
                 self.time_colname = 'donor_relapse_interval'
                 self.event_colname = 'pfs_event'
             self.event_recode_dict = {0: 0, 1: 1}  # no-op!

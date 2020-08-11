@@ -16,10 +16,11 @@ class JoinMetasamplesMetadata:
     def __init__(self, train_basename, eval_basename):
         tcga = 'TCGA_OV_VST'
         aocs = 'AOCS_Protein'
+        both = 'BOTH_AOCS_TCGA'
         mini_aocs = 'Mini_AOCS'   # for unit tests
 
-        assert train_basename in [tcga, aocs, mini_aocs]
-        assert eval_basename in [tcga, aocs, mini_aocs]
+        assert train_basename in [tcga, aocs, mini_aocs, both]
+        assert eval_basename in [tcga, aocs, mini_aocs, both]
 
         self.train_basename = train_basename
         self.eval_basename = eval_basename

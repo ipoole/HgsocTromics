@@ -16,7 +16,10 @@ from join_metasamples_metadata import JoinMetasamplesMetadata
 # noinspection PyMethodMayBeStatic
 class BoxAndScatters:
 
-    def __init__(self, dataset_tag=None):
+    def __init__(self, box_cols, scatter_cols, dataset_tag=None):
+        assert len(box_cols) == 1   # Current limitation
+        self.box_cols = box_cols
+        self.scatter_cols = scatter_cols
         self.plots_dir = '../Plots/BoxAndScatters/'
         self.dataset_tag = dataset_tag
         self.colours = {'NMF': u'#1f77b4', 'ICA': u'#ff7f0e', 'PCA': u'#2ca02c'}
@@ -36,11 +39,12 @@ class BoxAndScatters:
         return df_result
 
     def plot_boxplots(self, df, facto_prefix, show=True):
+        assert len(self.box_cols) == 1
         selected_columns = [col for col in df.columns if facto_prefix in col]
         df = self.normalise_component_columns(df, selected_columns)
-        melted_df = pd.melt(df, id_vars=['WGD'], value_vars=selected_columns)
+        melted_df = pd.melt(df, id_vars=self.box_cols, value_vars=selected_columns)
 
-        sns.boxplot(x='variable', y='value', hue='WGD', color=self.colours[facto_prefix],
+        sns.boxplot(x='variable', y='value', hue=self.box_cols[0], color=self.colours[facto_prefix],
                     data=melted_df)
 
         if self.dataset_tag:
@@ -52,14 +56,13 @@ class BoxAndScatters:
 
     def plot_scatters(self, df, show=True):
         factors = [col for col in df.columns if col[:3] in ['NMF', 'ICA', 'PCA']]
-        genomic_feats = ['WGD', 'Cellularity', 'HRDetect', 'Mutational_load', 'CNV_load', 'SV_load']
         df = self.normalise_component_columns(df, factors)
 
-        rows, cols = len(factors), len(genomic_feats)
+        rows, cols = len(factors), len(self.scatter_cols)
         plt.figure(figsize=(2.5*cols, 2*rows))
         i = 0
         for factor in factors:
-            for feat in genomic_feats:
+            for feat in self.scatter_cols:
                 i += 1
                 plt.subplot(rows, cols, i)
 
@@ -68,7 +71,7 @@ class BoxAndScatters:
                     outlier = 127424
                     x = df[feat][df[feat] < outlier]
                     y = df[factor][df[feat] < outlier]
-                elif feat == 'WGD':
+                elif feat in ['WGD', 'Which']:
                     # WGD is 0 or 1, so jitter slightly
                     jitter = np.random.uniform(-0.1, 0.1, len(df))
                     x = df[feat]+jitter
@@ -91,7 +94,7 @@ class BoxAndScatters:
                 # Must get x and y again to avoid jitter and outlier changes
                 x = df[feat].values
                 y = df[factor].values
-                if feat == 'WGD':
+                if feat in ['WGD', 'Which']:
                     # Binary value, so use Point-Biserialr correlation
                     r, p_val = stats.pointbiserialr(x, y)
                 else:
@@ -109,14 +112,14 @@ class BoxAndScatters:
             plt.show()
 
 
-def run_one(train_basename, eval_basename, saveplots):
+def run_one(train_basename, eval_basename, box_cols, scatter_cols, saveplots):
 
     # Construct a dataframe indexed by patients, with columns for metasamples and metadata
     df = JoinMetasamplesMetadata(train_basename, eval_basename).make_joined_df()
 
     # Plot the heatmaps, saving plots with names according factorizer and datasets
     fig_name = '%s_%s' % (train_basename[:4], eval_basename[:4]) if saveplots else None
-    bas = BoxAndScatters(dataset_tag=fig_name)
+    bas = BoxAndScatters(box_cols, scatter_cols, dataset_tag=fig_name)
     bas.plot_boxplots(df, 'NMF')
     bas.plot_boxplots(df, 'ICA')
     bas.plot_boxplots(df, 'PCA')
@@ -125,7 +128,11 @@ def run_one(train_basename, eval_basename, saveplots):
 
 
 def main():
-    run_one('TCGA_OV_VST', 'AOCS_Protein', saveplots=True)
+    aocs_cols = ['WGD', 'Cellularity', 'HRDetect', 'Mutational_load', 'CNV_load', 'SV_load']
+    run_one('TCGA_OV_VST', 'AOCS_Protein', aocs_cols[:1], aocs_cols, saveplots=True)
+
+    run_one('BOTH_AOCS_TCGA', 'BOTH_AOCS_TCGA', ['Which'], ['Which'], saveplots=True)
+    run_one('BOTH_AOCS_TCGA', 'AOCS_Protein', aocs_cols[:1], aocs_cols, saveplots=True)
 
 
 if __name__ == '__main__':
