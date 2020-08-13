@@ -481,8 +481,8 @@ def one_run(basename, method, saveplots=True):
 
     fc = FactorClustering(basename, 50, method, saveplots=saveplots)
     fc.read_expression_matrix()
-
-    nc_list = [2, 3, 5, 10]  # These are the ranks we'll show in the paper.
+    nc_list = range(2, 11)
+    # nc_list = [2, 3, 5, 10]  # These are the ranks we'll show in the paper.
     # nc_list = [3, 5]
 
     if True:
@@ -500,7 +500,7 @@ def one_run(basename, method, saveplots=True):
         fc.plot_multiple_single_factors_scatter(ICA_Factorizer, nc_list, show=False)
         fc.plot_multiple_single_factors_scatter(PCA_Factorizer, nc_list, show=False)
 
-    if False:
+    if True:
         fc.plot_silhouette_scores(range(2, 11), show=False)
 
     if True:
