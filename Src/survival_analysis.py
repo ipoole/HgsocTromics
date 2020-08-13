@@ -59,7 +59,7 @@ class SurvivalAnalysis:
                 self.time_colname = 'donor_survival_time'
                 self.event_colname = 'os_event'
             else:
-                assert self.event_colname == aocs
+                assert self.eval_basename == aocs
                 self.time_colname = 'donor_relapse_interval'
                 self.event_colname = 'pfs_event'
             self.event_recode_dict = {0: 0, 1: 1}  # no-op!
@@ -69,7 +69,7 @@ class SurvivalAnalysis:
         """ Return a list of the factor columns (e.g. NMF_1_of_3) present in the df"""
         return [col for col in df.columns if col[:4] in ['NMF_', 'ICA_', 'PCA_']]
 
-    def cleanup_and_threshold_components_df(self, df, percentile=50):
+    def cleanup_and_threshold_components_df(self, df, components=None, percentile=50):
         # Clean-up: keep only the columns we need
 
         df_clean = df.dropna()
@@ -80,7 +80,8 @@ class SurvivalAnalysis:
 
         # Threshold components (factors) to binarize
         t_df = df_clean.copy()
-        for c in self.component_columns(df):
+        components = components if components else self.component_columns(df)
+        for c in components:
             t = np.percentile(df[c], percentile)
             t_df[c] = [1 if v > t else 0 for v in t_df[c]]
         return t_df
@@ -204,10 +205,10 @@ class SurvivalAnalysis:
         if show:
             plt.show()
 
-    def run_survival_analysis(self, df, show=True):
-        survival_df = self.cleanup_and_threshold_components_df(df)
+    def run_survival_analysis(self, df, components=None, show=True):
+        survival_df = self.cleanup_and_threshold_components_df(df, components)
 
-        all_components = self.component_columns(df)
+        all_components = components if components else self.component_columns(df)
 
         print(all_components)
         report_df = pd.DataFrame(columns=('Component', 'Concordance', 'HR', 'p-val'))
@@ -240,7 +241,7 @@ class SurvivalAnalysis:
         for i, c in enumerate(all_components):
             plt.subplot(4, 3, i + 1)
             self.plot_component_stratified_survival(survival_df, c, show=False)
-        assert len(all_components) == 11
+        # assert len(all_components) == 11
         # We've plotted 11 graphs, so fill up the 12th with unstratified survival
         plt.subplot(4, 3, 12)
         self.plot_unstratified_survival(survival_df, show=False)
@@ -261,12 +262,53 @@ def run_one(train_basename, eval_basename, survival_or_relapse='os', saveplots=F
     # Construct a dataframe indexed by patients, with columns for
     # metasamples and metadata
     df = JoinMetasamplesMetadata(train_basename, eval_basename).make_joined_df()
+    print(df)
 
     survival_df = SurvivalAnalysis(train_basename, eval_basename,
                                    survival_or_relapse=survival_or_relapse,
                                    saveplots=saveplots).run_survival_analysis(df, show=show)
 
     return survival_df
+
+
+def gene_specific_main():
+    """ Quick hack to generate survival plots for CD38! """
+    gene_ensg = 'ENSG00000004468'  # CD38
+    gene_symbol = 'CD38'
+    aocs, tcga = 'AOCS_Protein', 'TCGA_OV_VST'
+    def one_sa(eval_basename, survival_or_relapse='os'):
+
+        df = JoinMetasamplesMetadata(tcga, eval_basename).make_joined_gene_specific_df(
+            [gene_ensg])
+        df.rename(columns={gene_ensg: gene_symbol}, inplace=True)
+
+        sa = SurvivalAnalysis(tcga, eval_basename,
+                              survival_or_relapse=survival_or_relapse,
+                              saveplots=False)
+        survival_df = sa.cleanup_and_threshold_components_df(df, [gene_symbol])
+        return sa, survival_df
+
+    plt.figure(figsize=(10, 4))
+    plt.subplot(1, 3, 1)
+    sa, survival_df = one_sa(tcga)
+    sa.plot_component_stratified_survival(survival_df, gene_symbol, show=False)
+    plt.title("Kaplan-Meier %s %s (%s)" % (gene_symbol, tcga[:4], 'os'))
+
+    plt.subplot(1, 3, 2)
+    sa, survival_df = one_sa('AOCS_Protein')
+    sa.plot_component_stratified_survival(survival_df, gene_symbol, show=False)
+    plt.title("Kaplan-Meier %s %s (%s)" % (gene_symbol, aocs[:4], 'os'))
+
+    plt.subplot(1, 3, 3)
+    sa, survival_df = one_sa('AOCS_Protein', survival_or_relapse='pfs')
+    sa.plot_component_stratified_survival(survival_df, gene_symbol, show=False)
+    plt.title("Kaplan-Meier %s %s (%s)" % (gene_symbol, aocs[:4]
+                                           , 'pfs'))
+
+    figpath = sa.plots_dir + 'gene_specific_%s_survival.pdf' % gene_symbol
+    plt.savefig(figpath, bbox_inches='tight')
+
+    plt.show()
 
 
 def main():
@@ -302,3 +344,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    # gene_specific_main()

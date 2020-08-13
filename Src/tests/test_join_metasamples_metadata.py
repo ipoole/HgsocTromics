@@ -29,6 +29,11 @@ class JoinMetadataMetasamplesTests(unittest.TestCase):
         # print(meta_df)
         assert list(meta_df.index.values) == list(factor_df.index.values)
 
+    def test_make_joined_gene_specific_df(self):
+        joined_df = self.jmsmd.make_joined_gene_specific_df(["ENSG00000003400"])
+        assert joined_df is not None
+        assert joined_df.index.name == self.jmsmd.patient_id_colname
+
     def test_make_joined_df(self):
         joined_df = self.jmsmd.make_joined_df()
         assert joined_df is not None

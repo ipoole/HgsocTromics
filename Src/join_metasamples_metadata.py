@@ -110,6 +110,15 @@ class JoinMetasamplesMetadata:
 
         return factor_df
 
+    def make_joined_gene_specific_df(self, genes):
+        """ Return a df with metadata and a single factor relating to just the given genes"""
+        meta_df, x_df = self.read_metadata_and_x_dfs()
+        gene_row = x_df.loc[genes]
+        genes_df = gene_row.transpose()
+        assert list(meta_df.index.values) == list(genes_df.index.values)
+        joined_df = pd.concat([meta_df, genes_df], axis=1)
+        return joined_df
+
     def make_joined_df(self):
         """ The puts together a dataframe indexed by patient (RNAID) with metatada
         and *selected* metagenes (components).  These are the metagenes selected based
@@ -127,4 +136,3 @@ class JoinMetasamplesMetadata:
         combined_df = pd.concat([meta_df, NMF_df, ICA_df, PCA_df], axis=1)
 
         return combined_df
-
